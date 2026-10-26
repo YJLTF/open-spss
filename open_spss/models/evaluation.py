@@ -6,7 +6,7 @@ import pandas as pd
 
 from ..core import charts as ch
 from ..core.datasets import Dataset, as_numeric, get_series
-from ..core.registry import CAT, QUANT, ModelSpec, Option, Slot, register_model
+from ..core.registry import QUANT, ModelSpec, Option, Slot, register_model
 from ..core.results import ModelError, Result, fnum, fp, judge_p
 
 RI_TABLE = {1: 0.0, 2: 0.0, 3: 0.58, 4: 0.90, 5: 1.12, 6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49, 11: 1.51, 12: 1.54}

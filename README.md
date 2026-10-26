@@ -19,6 +19,10 @@
 
 ## 快速开始
 
+### 方式零:直接下载(免安装)
+
+从 [GitHub Releases](https://github.com/YJLTF/open-spss/releases) 下载 `OpenSPSS.exe`,双击即用,无需 Python 环境。
+
 ### 方式一:从源码运行(Python ≥ 3.10)
 
 ```bash
@@ -100,16 +104,17 @@ bash scripts/start.sh     # 自动创建 venv、安装依赖并启动
 ```
 open-spss/
 ├── open_spss/
-│   ├── core/            # 注册表、数据集管理、结果结构、ECharts 构建器
+│   ├── core/            # 注册表、数据集管理(含落盘)、结果结构、ECharts 构建器
 │   ├── models/          # 12 个模块文件,100 个模型实现
-│   ├── web/             # 前端 SPA(原生 JS + ECharts,无构建步骤)
+│   ├── web/             # 前端 SPA(原生 JS + ECharts,无构建步骤;core/charts/render/app 四个模块)
 │   ├── app.py           # FastAPI 服务
 │   ├── processing.py    # 数据处理操作
 │   ├── samples.py       # 内置示例数据集
 │   └── cli.py           # 命令行入口
-├── tests/               # 全模型冒烟测试(100/100 通过)
-├── scripts/             # 一体化启动 / 构建脚本
-└── openspss.spec        # PyInstaller 打包配置
+├── tests/               # pytest:全模型冒烟测试(100/100)与单元测试
+├── scripts/             # start.sh 启动脚本、make_splash/make_logo 品牌资产生成
+├── docs/                # 截图等文档资源
+└── openspss.spec        # PyInstaller 打包配置(构建前自动重生成过渡图)
 ```
 
 ## 添加新模型
@@ -133,7 +138,7 @@ register_model(ModelSpec(
 ## 测试
 
 ```bash
-pytest tests/ -q      # 全模型冒烟测试
+pytest tests/ -q      # 冒烟测试(100 个模型逐个跑通)+ 标点/持久化/边界单元测试
 ```
 
 ## 技术栈

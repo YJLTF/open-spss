@@ -1,90 +1,5 @@
-/* OpenSPSS 前端应用 */
+/* OpenSPSS 前端应用:视图/路由/交互(基础与图表能力见 core.js / charts.js / render.js) */
 "use strict";
-
-/* ---------------- 状态与工具 ---------------- */
-const S = {
-  catalog: null,            // {categories, total}
-  datasets: [], samples: [],
-  ds: null,                 // 当前数据集详情
-  model: null,              // 当前模型 spec
-  slots: {}, options: {},
-  result: null,
-  running: false,
-  dataPage: 1,
-  history: [],              // 本次会话的分析记录(供综合报告)
-};
-const $ = (sel, el = document) => el.querySelector(sel);
-const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const VT_LABEL = { quant: "定量", cat: "定类", ordinal: "定级", text: "文本", any: "任意" };
-const vtBadge = (t) => `<span class="vt ${t}">${VT_LABEL[t] || t}</span>`;
-
-function toast(msg, kind = "") {
-  const el = document.createElement("div");
-  el.className = `toast ${kind}`;
-  el.textContent = msg;
-  $("#toasts").appendChild(el);
-  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(() => el.remove(), 320); }, 3200);
-}
-
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : undefined,
-    ...opts,
-    body: opts.body && !(opts.body instanceof FormData) ? JSON.stringify(opts.body) : opts.body,
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try { detail = (await res.json()).detail || detail; } catch { /* ignore */ }
-    const err = new Error(detail);
-    err.status = res.status;
-    throw err;
-  }
-  return res.json();
-}
-
-/* 极简 markdown:**bold** 与 `code` */
-function md(text) {
-  return esc(text)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>");
-}
-
-/* p 值单元格:色点 + 星号 */
-function pCell(text) {
-  if (!/[pP<]|0\.\d|<0\.001/.test(text)) return esc(text);
-  let dot = "sig0";
-  if (text.includes("***")) dot = "sig1";
-  else if (text.includes("**")) dot = "sig2";
-  else if (text.includes("*")) dot = "sig3";
-  return `<span class="pv"><span class="dot ${dot}"></span>${esc(text)}</span>`;
-}
-
-/* ---------------- 弹窗 ---------------- */
-function openModal(html, { wide = false } = {}) {
-  const root = $("#modal-root");
-  root.innerHTML = `<div class="modal-mask"><div class="modal ${wide ? "wide" : ""}" role="dialog" aria-modal="true">${html}</div></div>`;
-  const mask = $(".modal-mask", root);
-  mask.addEventListener("mousedown", (e) => { if (e.target === mask) closeModal(); });
-  $(".modal-close", root)?.addEventListener("click", closeModal);
-  return mask;
-}
-function closeModal() { $("#modal-root").innerHTML = ""; }
-
-document.addEventListener("mousedown", (e) => {
-  const pop = $("#popover-root .popover");
-  if (pop && !(e.target.closest && e.target.closest(".slot-box")) && !pop.contains(e.target)) closePopover();
-});
-function closePopover() { $("#popover-root").innerHTML = ""; }
-function openPopover(anchor, html) {
-  const root = $("#popover-root");
-  root.innerHTML = `<div class="popover">${html}</div>`;
-  const pop = $(".popover", root);
-  const r = anchor.getBoundingClientRect();
-  pop.style.top = Math.min(r.bottom + 6, innerHeight - 340) + "px";
-  pop.style.left = Math.min(r.left, innerWidth - 286) + "px";
-  return pop;
-}
 
 /* ---------------- 数据加载 ---------------- */
 async function loadCatalog() { S.catalog = await api("/api/catalog"); renderTree($("#modelSearch").value); }
@@ -555,16 +470,6 @@ async function viewModel(id) {
       openVarPicker(box, key);
     });
   });
-  // 移除变量(事件委托)
-  $("#view").addEventListener("click", (e) => {
-    const x = e.target.closest(".x[data-slot]");
-    if (!x) return;
-    e.stopPropagation();
-    const { slot, col } = x.dataset;
-    if (S.model.slots.find(s => s.key === slot)?.multiple) S.slots[slot] = S.slots[slot].filter(c => c !== col);
-    else S.slots[slot] = "";
-    viewModelRefreshPanel();
-  }, { once: true });
 
   // 选项事件
   $$("[data-opt]").forEach(el => el.addEventListener("change", () => {
@@ -642,157 +547,6 @@ async function runModel() {
 async function reloadCurrentDsQuiet() {
   if (!S.ds) return;
   try { S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}`); renderDatasetBox(); } catch { /* ignore */ }
-}
-
-/* ---------------- 结果渲染 ---------------- */
-let chartObservers = [];
-function renderResult() {
-  chartObservers.forEach(o => o.disconnect()); chartObservers = [];
-  const r = S.result;
-  const nTables = r.tables.length, nCharts = r.charts.length;
-  $("#results").innerHTML = `
-    <div class="result-head">
-      <div class="result-tabs">
-        <button data-tab="all" class="active">全部结果</button>
-        <button data-tab="interp">智能解读</button>
-        <button data-tab="tables">表格 ${nTables}</button>
-        <button data-tab="charts">图表 ${nCharts}</button>
-      </div>
-      <span style="flex:1"></span>
-      <button class="btn" id="btnExport">⬇ 导出 Excel</button>
-    </div>
-    <div class="result-flow" id="resultFlow">${resultFlowHtml(r, "all")}</div>`;
-
-  $$(".result-tabs button").forEach(b => b.addEventListener("click", () => {
-    $$(".result-tabs button").forEach(x => x.classList.remove("active"));
-    b.classList.add("active");
-    $("#resultFlow").innerHTML = resultFlowHtml(S.result, b.dataset.tab);
-    bindChartLazy();
-  }));
-  $("#btnExport").addEventListener("click", exportXlsx);
-  bindChartLazy();
-}
-
-function resultFlowHtml(r, tab, prefix = "") {
-  let html = "";
-  const cp = (n) => `chart-${prefix}${n}`;
-  if ((tab === "all" || tab === "interp") && r.interpretation.length) {
-    html += `<div class="card rcard interp-card" data-kind="interp">
-      <h3><span class="hbar"></span>智能解读</h3>
-      <div class="interp-body">${r.interpretation.map(p => `<p>${md(p)}</p>`).join("")}</div>
-    </div>`;
-  }
-  if (r.notes?.length && (tab === "all" || tab === "interp")) {
-    html += `<div class="card rcard" data-kind="interp"><h3><span class="hbar" style="background:var(--teal)"></span>附加说明</h3>
-      <div class="interp-body">${r.notes.map(n => `<p>${md(n)}</p>`).join("")}</div></div>`;
-  }
-  if (tab === "all" || tab === "tables") {
-    r.tables.forEach((t, i) => {
-      html += `<div class="card rcard" data-kind="tables">
-        <h3><span class="hbar"></span>${esc(t.title)}
-          <span class="dl-xlsx btn ghost" data-tbl="${i}" title="导出此表">⬇ Excel</span></h3>
-        <div class="tbl-scroll"><table class="rtable"><thead><tr>${
-          t.headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${
-          t.rows.map(row => `<tr>${row.map((cell, ci) => {
-            const s = String(cell ?? "");
-            const isP = /^[<>]?\d*\.?\d+[%*]*$/.test(s) && (s.includes("*") || ci > 0 && /^<?0?\.?\d*\**$/.test(s));
-            const cls = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(s) ? "num" : "";
-            return `<td class="${cls} ${s.match(/^\<?0\.\d+\*+$/) || s.includes("*") ? "pcell" : ""}">${pCell(s)}</td>`;
-          }).join("")}</tr>`).join("")}</tbody></table></div>
-        ${t.note ? `<div class="tbl-note">${esc(t.note)}</div>` : ""}
-      </div>`;
-    });
-  }
-  if (tab === "all" || tab === "charts") {
-    r.charts.forEach((c, i) => {
-      html += `<div class="card rcard" data-kind="charts">
-        <h3><span class="hbar"></span>${esc(c.title)}
-          <span class="chart-tools"><button data-png="${i}">⬇ PNG</button></span></h3>
-        <div class="chart-box" id="${cp(i)}"></div>
-      </div>`;
-    });
-  }
-  if (!html) html = `<div class="result-empty card"><h4>该分类下暂无内容</h4></div>`;
-  return html;
-}
-
-function initChartIn(box, chart) {
-  const opt = JSON.parse(JSON.stringify(chart.option));
-  // 热力图 {c} 模板会输出整个 [x,y,v] 数组,替换为取值函数
-  (opt.series || []).forEach(sr => {
-    if (sr.type === "heatmap" && sr.label && sr.label.formatter === "{c}") {
-      sr.label.formatter = (p) => {
-        const v = Array.isArray(p.value) ? p.value[2] : p.value;
-        return typeof v === "number" ? (+v.toFixed(4)).toString() : String(v ?? "");
-      };
-    }
-  });
-  const inst = echarts.getInstanceByDom(box) || echarts.init(box, null, { renderer: "canvas" });
-  inst.clear();
-  inst.setOption(opt);
-  window.addEventListener("resize", () => inst.resize());
-  return inst;
-}
-
-function chartPrefixToResult(prefix) {
-  if (!prefix) return S.result;
-  return S.history[parseInt(prefix.replace("rp", ""))]?.result || null;
-}
-
-function bindChartLazy(result = S.result, prefix = "") {
-  $$(".chart-box").forEach(box => {
-    const rest = box.id.startsWith("chart-rp") ? "rp" : "";
-    const idx = parseInt(box.id.slice(rest ? 8 : 6));
-    const chart = (rest ? chartPrefixToResult(box.id.slice(6)) : result)?.charts[idx];
-    if (!chart) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        io.disconnect();
-        initChartIn(box, chart);
-      }
-    }, { rootMargin: "80px" });
-    io.observe(box);
-    chartObservers.push(io);
-  });
-  $$(".chart-tools [data-png]").forEach(b => b.addEventListener("click", () => {
-    const box = b.closest(".rcard")?.querySelector(".chart-box");
-    if (!box) return;
-    const rest = box.id.startsWith("chart-rp");
-    const ctx = rest ? chartPrefixToResult(box.id.slice(6).replace(/-\d+$/, "")) : S.result;
-    const chart = ctx?.charts[parseInt(box.id.slice(rest ? 8 : 6))];
-    if (!chart) return;
-    const inst = initChartIn(box, chart);
-    const url = inst.getDataURL({ pixelRatio: 2, backgroundColor: "#fff" });
-    const a = document.createElement("a");
-    a.href = url;
-    const title = b.closest(".rcard").querySelector("h3")?.firstChild?.textContent?.trim() || "chart";
-    a.download = title + ".png";
-    a.click();
-  }));
-  $$(".dl-xlsx[data-tbl]").forEach(b => b.addEventListener("click", () => {
-    const sec = b.closest(".report-item");
-    const tables = sec ? (S.history[parseInt(sec.id.slice(2))]?.result.tables || []) : S.result.tables;
-    const t = tables[parseInt(b.dataset.tbl)];
-    if (t) exportXlsx([t]);
-  }));
-}
-
-async function exportXlsx(tables = null) {
-  const payload = {
-    title: S.result?.model?.name || "分析结果",
-    tables: (tables || S.result.tables).map(t => ({ title: t.title, headers: t.headers, rows: t.rows, note: t.note })),
-  };
-  try {
-    const res = await fetch("/api/export/xlsx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error("导出失败");
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${payload.title}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast("已导出 Excel", "ok");
-  } catch (err) { toast(err.message, "err"); }
 }
 
 /* ---------------- 综合分析报告 ---------------- */
@@ -958,6 +712,17 @@ async function boot() {
     return;
   }
   $("#modelSearch").addEventListener("input", (e) => renderTree(e.target.value));
+
+  // 移除已选变量(全局事件委托,替代每次渲染的临时监听)
+  $("#view").addEventListener("click", (e) => {
+    const x = e.target.closest(".x[data-slot]");
+    if (!x) return;
+    e.stopPropagation();
+    const { slot, col } = x.dataset;
+    if (S.model?.slots.find(s => s.key === slot)?.multiple) S.slots[slot] = S.slots[slot].filter(c => c !== col);
+    else S.slots[slot] = "";
+    viewModelRefreshPanel();
+  });
   window.addEventListener("hashchange", route);
   route();
 }
