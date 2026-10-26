@@ -650,7 +650,13 @@ print("C-index:", round(cph.concordance_index_, 4))
 
 @_register("kaplan_meier")
 def _kaplan_meier(ds, sl, op):
-    grp = f', group_col={_q(sl["group"])}' if sl.get("group") else ""
+    # 循环头预计算在 f-string 之外:表达式内复用外层引号是 3.12+ 语法(PEP 701)
+    q = chr(34)
+    if sl.get("group"):
+        loop_head = ("for label, sub in data.assign(g=df[" + _q(sl["group"]) +
+                     "]" + ".astype(str)).groupby(" + q + "g" + q + "):")
+    else:
+        loop_head = ("sub = data" + chr(10) + "label = " + q + "全部样本" + q + chr(10) + "if True:")
     return _header("Kaplan-Meier 生存曲线", "kaplan_meier", ds, sl) + f'''import pandas as pd
 from lifelines import KaplanMeierFitter   # pip install lifelines
 
@@ -667,7 +673,7 @@ def _plot_one(sub, label):
     return kmf
 
 results = []
-{f'for label, sub in data.assign(g=df[{sl["group"]!r}].astype(str)).groupby("g"):' if sl.get("group") else 'sub = data\nlabel = "全部样本"\nif True:'}
+{loop_head}
     kmf = _plot_one(sub, str(label))
     results.append((label, kmf))
 for label, kmf in results:
