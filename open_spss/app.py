@@ -147,7 +147,7 @@ def process(ds_id: str, payload: ProcessPayload):
         msg = fn(ds, **payload.params)
     except TypeError as e:
         raise ModelError(f"参数错误: {e}") from e
-    ds.note(msg)
+    ds.note(msg)  # note 内部落盘:数据处理对列/行的改动一并持久化
     d = ds.summary()
     d["message"] = msg
     d["preview"] = ds.preview(1, 50)

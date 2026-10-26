@@ -1,13 +1,15 @@
-"""数据集管理:上传、类型推断、预览、元数据维护。"""
+"""数据集管理:上传、类型推断、预览、元数据维护、落盘持久化。"""
 from __future__ import annotations
 
 import io
+import sys
 import time
 import uuid
 
 import numpy as np
 import pandas as pd
 
+from . import storage
 from .results import ModelError
 
 MAX_DATASETS = 30
@@ -79,6 +81,13 @@ class Dataset:
                 "total": total, "page": page, "pageSize": page_size}
 
     # ---------- 变更 ----------
+    def save(self) -> None:
+        """落盘(数据帧 + 类型/标签元数据)。失败不阻断分析主流程。"""
+        try:
+            storage.save_dataset(self)
+        except OSError:
+            pass
+
     def set_dtype(self, col: str, dtype: str) -> None:
         if dtype not in DTYPES:
             raise ModelError(f"未知变量类型: {dtype}")
@@ -87,6 +96,7 @@ class Dataset:
                 if dtype == "quant":
                     self.df[col] = pd.to_numeric(self.df[col], errors="coerce")
                 c["dtype"] = dtype
+                self.save()
                 return
         raise ModelError(f"未找到列: {col}")
 
@@ -100,6 +110,7 @@ class Dataset:
         for c in self.columns:
             if c["name"] == old:
                 c["name"] = new
+        self.save()
 
     def drop_cols(self, cols: list[str]) -> None:
         self.df = self.df.drop(columns=[c for c in cols if c in self.df.columns])
@@ -107,6 +118,7 @@ class Dataset:
 
     def note(self, text: str) -> None:
         self.log.append(f"{time.strftime('%H:%M')} {text}")
+        self.save()
 
 
 def _safe(v):
@@ -136,6 +148,12 @@ class DatasetStore:
     def __init__(self) -> None:
         self.datasets: dict[str, Dataset] = {}
         self.order: list[str] = []
+        try:
+            n = storage.load_all(self)
+            if n:
+                print(f"[storage] restored {n} datasets", file=sys.stderr)
+        except Exception as e:  # noqa: BLE001
+            print(f"[storage] load failed: {e}", file=sys.stderr)
 
     # ---------- 读取 ----------
     def read_upload(self, filename: str, content: bytes) -> pd.DataFrame:
@@ -176,8 +194,10 @@ class DatasetStore:
         if len(self.datasets) >= MAX_DATASETS:
             evict = self.order.pop(0)
             self.datasets.pop(evict, None)
+            storage.remove_dataset(evict)
         self.datasets[ds.id] = ds
         self.order.append(ds.id)
+        ds.save()
         return ds
 
     def get(self, ds_id: str) -> Dataset:
@@ -198,6 +218,7 @@ class DatasetStore:
         self.datasets.pop(ds_id, None)
         if ds_id in self.order:
             self.order.remove(ds_id)
+        storage.remove_dataset(ds_id)
 
 
 STORE = DatasetStore()
