@@ -211,6 +211,53 @@ register_model(ModelSpec(
     options=[],
 ))
 
+# ================================================================ McDonald's ω
+def _run_omega(ds: Dataset, sl: dict, op: dict) -> Result:
+    """McDonald's ω:单因子模型下 (Σλ)²/((Σλ)²+Σθ),θ=1-λ²(标准化题目)。"""
+    res = Result()
+    cols = sl["vars"]
+    data = _matrix(ds, cols, standardize=True).dropna()
+    X = data.values
+    n, k = X.shape
+    corr = np.corrcoef(X.T)
+    eig, vec = np.linalg.eigh(corr)
+    order = np.argsort(eig)[::-1]
+    eig, vec = eig[order], vec[:, order]
+    load = np.clip(vec[:, 0] * np.sqrt(max(eig[0], 1e-9)), -0.999, 0.999)
+    if (load < 0).sum() > k / 2:            # 载荷方向统一(反向题常见)
+        load = -load
+    theta = 1 - load ** 2                    # 标准化误差方差
+    sum_l = load.sum()
+    omega = float(sum_l ** 2 / (sum_l ** 2 + theta.sum())) if (sum_l ** 2 + theta.sum()) else np.nan
+    alpha = _cronbach(X)
+    grade = ("优秀" if omega >= 0.9 else "良好" if omega >= 0.8 else
+             "可接受" if omega >= 0.7 else "偏低" if omega >= 0.6 else "不可接受")
+    rows = [[c, fnum(load[j], 3), fnum(theta[j], 3), fnum(load[j] ** 2, 3)] for j, c in enumerate(cols)]
+    res.add_table("单因子载荷与误差方差", ["题目", "标准化载荷 λ", "误差方差 θ=1-λ²", "共同度 λ²"], rows,
+                  note="负载荷提示反向计分题目,建议先反向处理后再分析")
+    res.add_table("信度系数对比", ["McDonald's ω", "Cronbach's α", "信度评价(ω)"],
+                  [[fnum(omega, 3), fnum(alpha, 3), grade]],
+                  note="ω≥0.9 优秀、≥0.8 良好、≥0.7 可接受;ω 基于因子模型,不要求各题目载荷相等,通常更接近量表真实信度")
+    res.add_chart("题目标准化载荷", ch.bar_chart("单因子标准化载荷", cols,
+                 {"λ": [round(float(v), 3) for v in load]}, y_name="载荷 λ"))
+    low = [c for c, v in zip(cols, load) if v < 0.4]
+    res.add_interp(
+        f"量表 {k} 个题目、{n} 个有效样本。McDonald's ω=**{fnum(omega, 3)}**,信度**{grade}**;"
+        f"同期 Cronbach's α={fnum(alpha, 3)}。"
+        + (f"载荷低于 0.4 的题目:{', '.join(low)},对总分贡献有限,可考虑修订或删除。" if low
+           else "各题目标准化载荷均 ≥0.4,单因子结构清晰,无需删题。"))
+    return res
+
+
+register_model(ModelSpec(
+    id="omega", name="McDonald's ω 信度", category="问卷研究",
+    runner=_run_omega,
+    desc="基于单因子模型的组合信度 McDonald's ω,与 Cronbach's α 对比,不要求 tau 等价。",
+    tags=["信度", "ω", "组合信度"], demo_note="survey",
+    slots=[Slot("vars", "量表题目(定量/定级,≥3)", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
+    options=[],
+))
+
 # ================================================================ IPA 分析
 _QUAD_LABEL = {
     "A": "优势保持区(高重要×高满意)",

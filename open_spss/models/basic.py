@@ -351,6 +351,64 @@ register_model(ModelSpec(
 ))
 
 
+# ================================================================ 偏相关分析
+def _run_partial_corr(ds: Dataset, sl: dict, op: dict) -> Result:
+    """偏相关:控制变量回归取残差后的 Pearson 相关,t 检验推断。"""
+    res = Result()
+    cols, ctrls = list(sl["vars"]), list(sl["ctrls"])
+    overlap = [c for c in cols if c in ctrls]
+    if overlap:
+        raise ModelError(f"分析变量与控制变量重复:「{overlap[0]}」")
+    data = pd.concat([as_numeric(ds, c).rename(c) for c in cols + ctrls], axis=1).dropna()
+    n = len(data)
+    dfree = n - len(ctrls) - 2
+    if dfree < 1:
+        raise ModelError(f"有效样本不足:控制 {len(ctrls)} 个变量后自由度 ≤0(当前有效 {n} 行)")
+    Y = data[cols].values.astype(float)
+    if ctrls:
+        Z = np.column_stack([np.ones(n), data[ctrls].values.astype(float)])
+        beta, *_ = np.linalg.lstsq(Z, Y, rcond=None)
+        Y = Y - Z @ beta          # 残差:剔除控制变量的线性影响
+    R = np.corrcoef(Y.T)
+    P = np.full_like(R, np.nan)
+    for i in range(len(cols)):
+        for j in range(len(cols)):
+            if i != j:
+                r = float(np.clip(R[i, j], -0.999999, 0.999999))
+                t = r * np.sqrt(dfree / (1 - r * r))
+                P[i, j] = float(2 * sps.t.sf(abs(t), dfree))
+    rows = [[c] + [f"{fnum(R[i, j], 3)}{stars(P[i, j])}" if i != j else "1" for j in range(len(cols))]
+            for i, c in enumerate(cols)]
+    ctrl_desc = "、".join(ctrls) if ctrls else "无"
+    res.add_table("偏相关系数矩阵", ["变量"] + cols, rows,
+                  note=f"控制变量:{ctrl_desc};*** p<0.01,** p<0.05,* p<0.1(双尾),自由度 df={dfree}")
+    res.add_chart("偏相关系数热力图", ch.heatmap_chart("偏相关系数热力图", cols, cols, R.tolist(),
+                  fmt="{c}", v_min=-1, v_max=1))
+    r01, p01 = R[0, 1], P[0, 1]
+    res.add_interp(
+        f"在控制 {ctrl_desc} 的条件下,「{cols[0]}」与「{cols[1]}」的偏相关系数为 **{fnum(r01, 3)}**"
+        f"(p={fp(p01)}),偏相关关系{'显著' if p01 < op['alpha'] else '不显著'},"
+        f"{'正' if r01 > 0 else '负'}相关且程度"
+        f"{'较强' if abs(r01) >= 0.5 else '中等' if abs(r01) >= 0.3 else '较弱'}。"
+        f"偏相关剔除了控制变量的混杂影响,比简单相关更能反映两变量的直接关联。")
+    return res
+
+
+register_model(ModelSpec(
+    id="partial_corr", name="偏相关分析", category="通用统计",
+    runner=_run_partial_corr,
+    desc="在控制一个或多个变量的条件下分析两变量的净相关,输出偏相关矩阵与显著性检验。",
+    tags=["偏相关", "控制变量", "净相关"], demo_note="survey",
+    slots=[
+        Slot("vars", "分析变量(定量,≥2)", types=(QUANT,), multiple=True),
+        Slot("ctrls", "控制变量(定量,≥1)", types=(QUANT,), multiple=True, max_count=10),
+    ],
+    options=[Option("alpha", "显著性水平 α", "select", default=0.05,
+                    choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.05, "label": "0.05"},
+                             {"value": 0.01, "label": "0.01"}])],
+))
+
+
 # ================================================================ RFM 模型
 def _run_rfm(ds: Dataset, sl: dict, op: dict) -> Result:
     res = Result()
