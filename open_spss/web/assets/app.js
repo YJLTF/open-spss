@@ -64,7 +64,6 @@ function renderTree(filter = "") {
   }
   if (!shown) html = `<div style="padding:20px 12px;font-size:12.5px;color:rgba(151,162,190,.7)">未找到匹配的模型</div>`;
   nav.innerHTML = html;
-  $("#modelCount").textContent = `${shown || S.catalog.total} 个模型`;
   $$(".model-item", nav).forEach(b => b.addEventListener("click", () => { location.hash = `#/m/${b.dataset.id}`; }));
 }
 
