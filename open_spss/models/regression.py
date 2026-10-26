@@ -930,3 +930,255 @@ register_model(ModelSpec(
            Slot("xs", "因子变量(定量,2~4个)", types=(QUANT,), multiple=True, max_count=4)],
     options=[ALPHA_OPT],
 ))
+# ================================================================ 中介效应分析
+def _run_mediation(ds: Dataset, sl: dict, op: dict) -> Result:
+    """简单/多重中介:系数乘积法点估计 + case 重抽样百分位 Bootstrap 推断(PROCESS 风格)。"""
+    res = Result()
+    yname, xname, mnames = sl["y"], sl["x"], list(sl["ms"])
+    covs = [sl["covs"]] if sl["covs"] else []
+    allv = [yname, xname] + mnames + covs
+    if len(set(allv)) != len(allv):
+        raise ModelError("因变量、自变量、中介变量与协变量之间不能重复选择")
+    data = pd.concat([pd.to_numeric(get_series(ds, c), errors="coerce") for c in allv], axis=1).dropna()
+    n = len(data)
+    if n < 20:
+        raise ModelError(f"有效样本不足 20 行(当前 {n}),中介效应 Bootstrap 检验不可靠")
+    Y = data[yname].values
+    X = data[xname].values
+    Mcols = [data[m].values for m in mnames]
+    Ccols = [data[c].values for c in covs]
+    one = np.ones(n)
+    # 三套设计矩阵:a 路径(M~X+C)、b/c' 路径(Y~X+M+C)、c 路径(Y~X+C)
+    Xa = np.column_stack([one, X] + Ccols)
+    Xr = np.column_stack([one, X] + Ccols)
+    n_rep = int(op["n_rep"])
+    rng = np.random.default_rng(20240001)      # 固定种子,结果可复现
+
+    def _ols(A, y):
+        beta, *_ = np.linalg.lstsq(A, y, rcond=None)
+        return beta
+
+    def _path_betas(mi: int):
+        """返回全样本点估计与 Bootstrap 分布:(a, b, cprime, c) 与各自的重抽样数组。"""
+        Xo = np.column_stack([one, X, Mcols[mi]] + Ccols)
+        ba = _ols(Xa, Mcols[mi])
+        bo = _ols(Xo, Y)
+        br = _ols(Xr, Y)
+        pts = (ba[1], bo[2], bo[1], br[1])
+        boots = np.empty((n_rep, 4))
+        for r in range(n_rep):
+            idx = rng.integers(0, n, n)
+            ba_ = _ols(Xa[idx], Mcols[mi][idx])
+            bo_ = _ols(Xo[idx], Y[idx])
+            br_ = _ols(Xr[idx], Y[idx])
+            boots[r] = (ba_[1], bo_[2], bo_[1], br_[1])
+        return pts, boots
+
+    rows, summary_rows = [], []
+    alpha = op["alpha"]
+    for mi, m in enumerate(mnames):
+        (a, b, cp, c), boots = _path_betas(mi)   # Xa/Xo/Xr 的系数顺序:a, b, c', c
+        acme_pt, ade_pt, tot_pt = a * b, cp, c
+        acme_b, ade_b, tot_b = boots[:, 0] * boots[:, 1], boots[:, 2], boots[:, 3]
+        for label, pt, arr in (("间接效应(ACME)", acme_pt, acme_b),
+                               ("直接效应(ADE)", ade_pt, ade_b),
+                               ("总效应", tot_pt, tot_b)):
+            p = max(float(2 * min((arr <= 0).mean(), (arr >= 0).mean())), 1.0 / (2 * n_rep))
+            rows.append([m, label, fnum(pt, 4), fnum(float(arr.std(ddof=1)), 4),
+                         fnum(float(np.percentile(arr, 2.5)), 4), fnum(float(np.percentile(arr, 97.5)), 4),
+                         fp(p), "显著" if p < alpha else "不显著"])
+        p_ind = max(float(2 * min((acme_b <= 0).mean(), (acme_b >= 0).mean())), 1.0 / (2 * n_rep))
+        p_dir = max(float(2 * min((ade_b <= 0).mean(), (ade_b >= 0).mean())), 1.0 / (2 * n_rep))
+        if p_ind < alpha:
+            kind = "部分中介" if p_dir < alpha else "完全中介"
+        else:
+            kind = "未检出中介效应"
+        prop = acme_pt / tot_pt if tot_pt else np.nan
+        summary_rows.append([m, fnum(prop, 4), kind])
+    res.add_table("效应分解(Bootstrap 检验)",
+                  ["中介变量", "效应类型", "效应值", "Boot SE", "95%CI 下限", "95%CI 上限", "p", "显著性"],
+                  rows, note=f"case 重抽样百分位 Bootstrap({n_rep} 次,固定随机种子);ACME=a×b")
+    res.add_table("中介效应判定", ["中介变量", "中介效应占比", "判定"], summary_rows,
+                  note="判定规则:间接效应显著且直接效应显著→部分中介;间接效应显著、直接效应不显著→完全中介")
+    first = summary_rows[0]
+    sig_list = "、".join(r[0] for r in summary_rows if "中介" in r[2])
+    res.add_interp(
+        f"以「{xname}」为自变量、「{yname}」为因变量、「{('、'.join(mnames))}」为中介变量,"
+        f"Bootstrap({n_rep} 次)检验显示:{sig_list or '所选中介变量均'}"
+        + (f"存在**{first[2]}**(占比 {first[1]},即「{xname}」对「{yname}」的影响约 "
+           f"{fnum(float(first[1]) * 100, 1)}% 经由「{mnames[0]}」传递)。" if "中介" in first[2]
+           else "未发现显著的间接传导路径,总效应主要由直接路径贡献。"))
+    return res
+
+
+register_model(ModelSpec(
+    id="mediation", name="中介效应分析", category="回归建模",
+    runner=_run_mediation,
+    desc="系数乘积法 + Bootstrap 检验的中介模型:间接/直接/总效应分解、中介占比与完全/部分中介判定。",
+    tags=["中介", "PROCESS", "Bootstrap"], demo_note="survey",
+    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
+           Slot("x", "自变量(定量)", types=(QUANT,)),
+           Slot("ms", "中介变量(定量,可多个)", types=(QUANT,), multiple=True, max_count=5),
+           Slot("covs", "协变量(定量,可选)", types=(QUANT,), multiple=False, required=False)],
+    options=[Option("n_rep", "Bootstrap 次数", "select", default=1000,
+                    choices=[{"value": 200, "label": "200(快)"},
+                             {"value": 500, "label": "500"},
+                             {"value": 1000, "label": "1000(推荐)"},
+                             {"value": 2000, "label": "2000(慢)"}]),
+             ALPHA_OPT],
+))
+
+
+# ================================================================ 调节效应分析
+def _run_moderation(ds: Dataset, sl: dict, op: dict) -> Result:
+    """层次回归检验调节:中心化交互项 + ΔR² 的 F 变化检验 + 简单斜率与交互图。"""
+    import statsmodels.api as sm
+    from scipy import stats as sps
+
+    res = Result()
+    yname, xname, mname = sl["y"], sl["x"], sl["mod"]
+    covs = [c for c in sl["covs"]]
+    if len({yname, xname, mname}) != 3 or yname in covs or xname in covs or mname in covs:
+        raise ModelError("因变量、自变量、调节变量与协变量之间不能重复选择")
+    frame = pd.concat([pd.to_numeric(get_series(ds, c), errors="coerce")
+                       for c in [yname, xname] + covs]
+                      + [get_series(ds, mname).rename(mname)], axis=1)
+    xc = (frame[xname] - frame[xname].mean()).rename("X_c")
+    parts, mod_desc = [xc], ""
+    m_meta = next((c for c in ds.columns if c["name"] == mname), None)
+    if m_meta and m_meta["dtype"] in ("cat", "ordinal"):
+        dummies = pd.get_dummies(frame[mname].astype("category"), prefix="M", drop_first=True, dtype=float)
+        if dummies.shape[1] == 0:
+            raise ModelError("调节变量只有一个水平,无法检验调节效应")
+        parts.append(dummies)
+        mod_terms = list(dummies.columns)
+        mod_desc = "定类/定级变量(哑变量化,以首个水平为参照)"
+    else:
+        ms = pd.to_numeric(frame[mname], errors="coerce")
+        sd = ms.std(ddof=1)
+        parts.append((ms - ms.mean()).rename("M_c"))
+        mod_terms = ["M_c"]
+        mod_desc = f"定量变量(中心化,SD={fnum(sd, 3)})"
+    for i, c in enumerate(covs):
+        parts.append(frame[c].rename(f"C{i + 1}"))
+    D = pd.concat(parts, axis=1).dropna()
+    if len(D) < 20:
+        raise ModelError(f"有效样本不足 20 行(当前 {len(D)})")
+    Y = pd.to_numeric(get_series(ds, yname), errors="coerce").reindex(D.index)
+    Xc = D["X_c"]
+    base_covs = [c for c in D.columns if c.startswith("C")]
+    m_cols = [c for c in D.columns if c.startswith("M")]
+    inter_cols = [f"X_x_{m}" for m in m_cols]
+    inter = pd.DataFrame({c: Xc * D[m] for c, m in zip(inter_cols, m_cols)})
+    ordered = [Xc] + [D[c] for c in m_cols] + [D[c] for c in base_covs] + [inter[c] for c in inter_cols]
+
+    def _fit(cols: list):
+        X = pd.concat(cols, axis=1)
+        return sm.OLS(Y, sm.add_constant(X, has_constant="add")).fit()
+
+    M1 = _fit([Xc] + [D[c] for c in base_covs])
+    M2 = _fit([Xc] + [D[c] for c in m_cols] + [D[c] for c in base_covs])
+    M3 = _fit(ordered)
+
+    def _fchange(small, big):
+        from scipy import stats as _sps
+        df1, df2 = int(big.df_model - small.df_model), int(big.df_resid)
+        if df1 <= 0 or df2 <= 0:
+            return np.nan, np.nan
+        f = (big.rsquared - small.rsquared) / df1 / ((1 - big.rsquared) / df2)
+        return float(f), float(_sps.f.sf(f, df1, df2))
+
+    f2, p2 = _fchange(M1, M2)
+    f3, p3 = _fchange(M2, M3)
+    res.add_table("层次回归模型比较",
+                  ["模型", "自变量X", "调节变量M", "交互项X×M", "R²", "ΔR²", "F 变化", "p(ΔF)"],
+                  [["M1", "✓", "", "", fnum(M1.rsquared, 4), "—", "—", "—"],
+                   ["M2", "✓", "✓", "", fnum(M2.rsquared, 4), fnum(M2.rsquared - M1.rsquared, 4), fnum(f2, 3), fp(p2)],
+                   ["M3", "✓", "✓", "✓", fnum(M3.rsquared, 4), fnum(M3.rsquared - M2.rsquared, 4), fnum(f3, 3), fp(p3)]],
+                  note="调节效应看 M3 步:交互项加入后 ΔR² 显著(F 变化 p<0.05)即存在调节效应")
+
+    def _pretty(nm: str) -> str:
+        return (nm.replace("X_c", f"「{xname}」(中心化)")
+                  .replace("M_c", f"「{mname}」(中心化)")
+                  .replace("X_x_M_c", f"「{xname}」×「{mname}」"))
+    irows = []
+    for nm in M3.params.index:
+        if nm == "const":
+            continue
+        irows.append([_pretty(nm), fnum(M3.params[nm], 4), fnum(M3.bse[nm], 4), fnum(M3.tvalues[nm], 3),
+                      fp(M3.pvalues[nm]), "显著" if M3.pvalues[nm] < op["alpha"] else "不显著"])
+    res.add_table("交互模型(M3)回归系数", ["项", "系数", "标准误", "t", "p", "显著性"], irows)
+
+    # 简单斜率:自变量对因变量的效应在不同调节水平下的差异
+    b, V = M3.params, M3.cov_params()
+    srows = []
+    if mod_terms == ["M_c"]:
+        msd = float(D["M_c"].std(ddof=1))
+        levels = [("M = 均值-1SD", -msd), ("M = 均值", 0.0), ("M = 均值+1SD", msd)]
+        for label, mv in levels:
+            slope = float(b["X_c"] + b["X_x_M_c"] * mv)
+            var = float(V.loc["X_c", "X_c"] + mv ** 2 * V.loc["X_x_M_c", "X_x_M_c"]
+                        + 2 * mv * V.loc["X_c", "X_x_M_c"])
+            se = float(np.sqrt(max(var, 1e-300)))
+            t = slope / se
+            p = float(2 * sps.t.sf(abs(t), int(M3.df_resid)))
+            srows.append([label, fnum(slope, 4), fnum(se, 4), fnum(t, 3), fp(p),
+                          "显著" if p < op["alpha"] else "不显著"])
+    else:
+        srows.append(["M = 参照水平", fnum(b["X_c"], 4), fnum(M3.bse["X_c"], 4), fnum(M3.tvalues["X_c"], 3),
+                      fp(M3.pvalues["X_c"]), "显著" if M3.pvalues["X_c"] < op["alpha"] else "不显著"])
+        for m in mod_terms:
+            lvl = m.replace("M_", "")
+            slope = float(b["X_c"] + b[f"X_x_{m}"])
+            var = float(V.loc["X_c", "X_c"] + V.loc[f"X_x_{m}", f"X_x_{m}"]
+                        + 2 * V.loc["X_c", f"X_x_{m}"])
+            se = float(np.sqrt(max(var, 1e-300)))
+            t = slope / se
+            p = float(2 * sps.t.sf(abs(t), int(M3.df_resid)))
+            srows.append([f"M = {lvl}", fnum(slope, 4), fnum(se, 4), fnum(t, 3), fp(p),
+                          "显著" if p < op["alpha"] else "不显著"])
+    res.add_table("简单斜率检验(自变量→因变量的效应)", ["调节水平", "斜率", "标准误", "t", "p", "显著性"], srows,
+                  note="不同调节水平下斜率差异明显,说明调节效应具有实质意义")
+
+    # 交互图
+    xgrid = np.linspace(float(Xc.min()), float(Xc.max()), 20)
+    series: dict[str, list] = {}
+    if mod_terms == ["M_c"]:
+        msd = float(D["M_c"].std(ddof=1))
+        for lab, mv in (("M低(-1SD)", -msd), ("M均值", 0.0), ("M高(+1SD)", msd)):
+            series[lab] = [round(float(M3.params["const"] + M3.params["X_c"] * xv + M3.params["X_x_M_c"] * mv), 4)
+                           for xv in xgrid]
+    else:
+        series["参照水平"] = [round(float(M3.params["const"] + M3.params["X_c"] * xv), 4) for xv in xgrid]
+        for m in mod_terms:
+            series[f"{m.replace('M_', '')}"] = [
+                round(float(M3.params["const"] + M3.params["X_c"] * xv + M3.params[f"X_x_{m}"]), 4) for xv in xgrid]
+    res.add_chart("调节效应交互图", ch.line_chart("简单斜率图(预测值)", [round(v, 2) for v in xgrid], series,
+                 x_name=f"「{xname}」(中心化)", y_name=f"「{yname}」预测值"))
+    sig_int = any(M3.pvalues[c] < op["alpha"] for c in inter_cols)
+    direction = ""
+    if sig_int and mod_terms == ["M_c"]:
+        v = float(M3.params["X_x_M_c"])
+        direction = ",调节方向为" + ("增强(正向调节)" if v > 0 else "削弱(负向调节)")
+    if sig_int:
+        core = (f"交互项显著,「{mname}」对「{xname}」→「{yname}」的关系存在显著调节效应{direction}。"
+                f"简单斜率检验显示自变量效应随调节水平变化。")
+    else:
+        core = f"交互项不显著(p={fp(p3)}),未检出「{mname}」的调节效应,各调节水平下回归线近似平行。"
+    res.add_interp(
+        f"层次回归显示:加入交互项后 ΔR²={fnum(M3.rsquared - M2.rsquared, 4)}(F 变化 p={fp(p3)})。{core}"
+        f"调节变量处理方式:{mod_desc}。")
+    return res
+
+
+register_model(ModelSpec(
+    id="moderation", name="调节效应分析", category="回归建模",
+    runner=_run_moderation,
+    desc="层次回归检验调节效应:中心化交互项、ΔR² 的 F 变化检验、简单斜率与交互图。",
+    tags=["调节", "交互效应", "简单斜率"], demo_note="survey",
+    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
+           Slot("x", "自变量(定量)", types=(QUANT,)),
+           Slot("mod", "调节变量(定量/定类/定级)", types=(QUANT, CAT, ORDINAL)),
+           Slot("covs", "协变量(定量,可选)", types=(QUANT,), multiple=True, max_count=8)],
+    options=[ALPHA_OPT],
+))
