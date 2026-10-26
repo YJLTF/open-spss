@@ -38,14 +38,15 @@ def bar_chart(title: str, categories: list, series: dict[str, list],
               x_name: str = "", y_name: str = "", stack: bool = False,
               horizontal: bool = False) -> dict:
     opt = base(title)
-    opt["xAxis"] = _cat_axis(x_name)
-    opt["yAxis"] = {**AXIS_STYLE, "type": "value", "name": y_name}
+    cat_axis = {**_cat_axis(x_name), "data": list(categories)}
+    val_axis = {**AXIS_STYLE, "type": "value", "name": y_name}
     if horizontal:
-        opt["xAxis"], opt["yAxis"] = {**AXIS_STYLE, "type": "value", "name": y_name}, _cat_axis(x_name)
-    data_key = "y" if not horizontal else "x"
+        opt["xAxis"], opt["yAxis"] = val_axis, cat_axis
+    else:
+        opt["xAxis"], opt["yAxis"] = cat_axis, val_axis
     opt["series"] = [
         {"name": k, "type": "bar", "stack": "total" if stack else None,
-         data_key: v, "barMaxWidth": 42, "itemStyle": {"borderRadius": [4, 4, 0, 0]}}
+         "data": list(v), "barMaxWidth": 42, "itemStyle": {"borderRadius": [4, 4, 0, 0]}}
         for k, v in series.items()
     ]
     return opt
@@ -55,7 +56,7 @@ def line_chart(title: str, x: list, series: dict[str, list],
                x_name: str = "", y_name: str = "", smooth: bool = True,
                area: bool = False, y_min=None, y_max=None) -> dict:
     opt = base(title)
-    opt["xAxis"] = {**_cat_axis(x_name), "boundaryGap": False}
+    opt["xAxis"] = {**_cat_axis(x_name), "data": list(x), "boundaryGap": False}
     ya = {**AXIS_STYLE, "type": "value", "name": y_name}
     if y_min is not None:
         ya["min"] = y_min

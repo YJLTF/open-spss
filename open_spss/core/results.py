@@ -55,6 +55,28 @@ def judge_p(p, alpha: float = 0.05) -> str:
     return "是" if (p is not None and not math.isnan(p) and p < alpha) else "否"
 
 
+import re as _re
+
+# 半角 → 全角标点(中文语境);数字间的逗号如 0.5,0.3 不转换,`代码`片段原样保留
+_PUNCT_MAP = [(",", ","), (";", ";"), (":", ":"), ("!", "!"), ("?", "?"), ("(", "("), (")", ")")]
+
+
+def zh_punct(text: str) -> str:
+    parts = _re.split(r"(`[^`]*`)", text)
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            out.append(part)
+            continue
+        for half, full in _PUNCT_MAP:
+            if half == ",":
+                part = _re.sub(r"(?<!\d),(?!\d)", full, part)
+            else:
+                part = part.replace(half, full)
+        out.append(part)
+    return "".join(out)
+
+
 @dataclass
 class Table:
     title: str
@@ -77,7 +99,7 @@ class Result:
 
     def add_table(self, title: str, headers: list[str], rows: list[list],
                   note: str = "", raw: list[list] | None = None) -> Table:
-        t = Table(title=title, headers=headers, rows=rows, note=note, raw=raw)
+        t = Table(title=title, headers=headers, rows=rows, note=zh_punct(note) if note else note, raw=raw)
         self.tables.append(t)
         return t
 
@@ -85,10 +107,10 @@ class Result:
         self.charts.append({"title": title, "option": option})
 
     def add_interp(self, *paras: str) -> None:
-        self.interpretation.extend(p for p in paras if p)
+        self.interpretation.extend(zh_punct(p) for p in paras if p)
 
     def add_note(self, *notes: str) -> None:
-        self.notes.extend(n for n in notes if n)
+        self.notes.extend(zh_punct(n) for n in notes if n)
 
     def to_dict(self) -> dict:
         return {
