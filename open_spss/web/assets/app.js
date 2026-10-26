@@ -653,8 +653,11 @@ async function viewModel(id) {
         <button class="btn primary big" id="btnRun">▶ 运行分析</button>
       </div>
     </div>
-    <div class="results" id="results">${resultEmptyHtml(found)}</div>
+    <div class="results" id="results">${S.result && S.result.model?.id === found.id ? "" : resultEmptyHtml(found)}</div>
   </div>`;
+
+  // 主题切换等重渲染时,当前模型的既有结果直接重画,无需重新计算
+  if (S.result && S.result.model?.id === found.id) renderResult();
 
   // 槽位事件
   $$(".slot-box").forEach(box => {
