@@ -31,16 +31,17 @@ def _run_reliability(ds: Dataset, sl: dict, op: dict) -> Result:
     X = _matrix(ds, cols, standardize=False).values
     n, k = X.shape
     alpha = _cronbach(X)
-    # CITC 与删除后 α
+    # CITC 与删除后 α(保留数值列,避免经 fnum 字符串往返;常数题/缺失使 CITC 为 NaN)
     rows = []
-    total = X.sum(axis=1)
+    citcs: list[float] = []
     for j, c in enumerate(cols):
         rest = np.delete(X, j, axis=1).sum(axis=1)
         citc = float(np.corrcoef(X[:, j], rest)[0, 1])
+        citcs.append(citc)
         a_del = _cronbach(np.delete(X, j, axis=1))
         rows.append([c, fnum(X[:, j].mean(), 3), fnum(X[:, j].std(ddof=1), 3),
-                     fnum(citc, 3), fnum(a_del, 3),
-                     "可保留" if citc >= 0.4 else "建议检查"])
+                     fnum(citc, 3) or "—", fnum(a_del, 3) or "—",
+                     "可保留" if citc == citc and citc >= 0.4 else "建议检查"])
     res.add_table("信度分析(克隆巴赫 α)", ["题目", "均值", "标准差", "CITC(校正后题总相关)", "删除该题后的α", "判断"],
                   rows,
                   note=f"总量表 Cronbach's α={fnum(alpha, 3)};CITC≥0.4 且删除后 α 不明显升高,说明该题目合理")
@@ -53,11 +54,12 @@ def _run_reliability(ds: Dataset, sl: dict, op: dict) -> Result:
     grade = ("优秀" if alpha >= 0.9 else "良好" if alpha >= 0.8 else
              "可接受" if alpha >= 0.7 else "偏低" if alpha >= 0.6 else "不可接受")
     res.add_chart("CITC 条形图", ch.bar_chart("各题目 CITC", [r[0] for r in rows],
-                 {"CITC": [round(float(r[3]), 3) for r in rows]}, y_name="CITC"))
+                 {"CITC": [round(v, 3) if v == v else None for v in citcs]}, y_name="CITC"))
+    bad = [c for c, v in zip(cols, citcs) if not v >= 0.4]
     res.add_interp(
         f"量表共 {k} 个题目、{n} 个有效样本。总量表 Cronbach's α=**{fnum(alpha, 3)}**,信度**{grade}**"
         f"(α≥0.8 良好、≥0.7 可接受);折半信度 Spearman-Brown={fnum(sb, 3)}。"
-        + (f"建议重点关注 CITC<0.4 的题目:{', '.join(r[0] for r in rows if float(r[3]) < 0.4)}。" if any(float(r[3]) < 0.4 for r in rows) else "各题目 CITC 均达标,无需删题。"))
+        + (f"建议重点关注 CITC<0.4 的题目:{', '.join(bad)}。" if bad else "各题目 CITC 均达标,无需删题。"))
     return res
 
 

@@ -36,16 +36,19 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-# 过渡图:Bootloader 在自解压期间立即显示,launcher 在端口就绪后调用 pyi_splash.close()
+# 过渡图:Bootloader 在自解压期间立即显示;launcher 通过 update_text IPC
+# 按真实启动阶段刷新文本(含字符进度条),断开 IPC 连接即关闭过渡页。
 splash = Splash(
     "open_spss/splash.png",
     binaries=a.binaries,
     datas=a.datas,
-    text_pos=None,          # 不绘制进度文本,图片自带提示
+    text_pos=(50, 246),                    # 动态文本行左下角:自解压期默认文案,之后是阶段+进度条
+    text_size=10,
+    # 注意:text_font 不能用含空格的字族名——模板按裸词拼接 Tcl,-family 会拆成多参数致脚本中断;
+    # 缺省用 TkDefaultFont(中文 Windows 即微软雅黑),CJK 与 █░ 字符都能渲染
+    text_color="#DCE4FF",
+    text_default="正在准备运行环境……",
     always_on_top=True,
-    scale=False,
-    width=520,
-    height=320,
 )
 
 exe = EXE(

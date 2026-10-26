@@ -5,6 +5,7 @@ import pytest
 
 from open_spss.core.datasets import STORE
 from open_spss.core.registry import CAT, ORDINAL, QUANT, REGISTRY
+from open_spss.core.results import zh_punct
 from open_spss.models import CATEGORIES  # noqa: F401
 from open_spss.samples import SAMPLES, create
 
@@ -102,3 +103,9 @@ def test_model_runs(m):
     result = spec.runner(dataset, slots, opts)
     d = result.to_dict()
     assert d["tables"] or d["charts"], f"{spec.id}: 未输出任何结果"
+    # 归一化幂等:解读/说明/表格图表标题不应再残留可转换的半角标点
+    texts = list(d["interpretation"]) + list(d["notes"])
+    texts += [t["title"] for t in d["tables"]] + [t["note"] for t in d["tables"] if t["note"]]
+    texts += [c["title"] for c in d["charts"]]
+    for t in texts:
+        assert zh_punct(t) == t, f"{spec.id}: 文本残留半角标点: {t!r}"

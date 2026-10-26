@@ -57,22 +57,32 @@ def judge_p(p, alpha: float = 0.05) -> str:
 
 import re as _re
 
-# 半角 → 全角标点(中文语境);数字间的逗号如 0.5,0.3 不转换,`代码`片段原样保留
-_PUNCT_MAP = [(",", ","), (";", ";"), (":", ":"), ("!", "!"), ("?", "?"), ("(", "("), (")", ")")]
+# 半角 → 全角标点(中文语境,用码点写法避免源文件形近字符混淆);
+# 千分位逗号 1,000 与 `代码`/链接片段原样保留
+_FULL_COMMA = "\uff0c"      # ，
+_FULL_SEMI = "\uff1b"       # ；
+_FULL_COLON = "\uff1a"      # ：
+_FULL_EXCL = "\uff01"       # ！
+_FULL_QUEST = "\uff1f"      # ？
+_FULL_LPAREN = "\uff08"     # （
+_FULL_RPAREN = "\uff09"     # ）
+_ELLIPSIS = "\u2026\u2026"  # ……
+_PUNCT_MAP = [("...", _ELLIPSIS), (",", _FULL_COMMA), (";", _FULL_SEMI), (":", _FULL_COLON),
+              ("!", _FULL_EXCL), ("?", _FULL_QUEST), ("(", _FULL_LPAREN), (")", _FULL_RPAREN)]
 
 
 def zh_punct(text: str) -> str:
-    parts = _re.split(r"(`[^`]*`)", text)
+    parts = _re.split(r"(`[^`]*`|\[[^\]]*\]\([^)]*\))", text)
     out = []
     for i, part in enumerate(parts):
         if i % 2 == 1:
             out.append(part)
             continue
+        # 仅保留两侧均为数字的逗号(千分位);t=2.1,p<0.05 这类数字后跟内容的必须转全角
+        part = _re.sub(r"(?<=\d),(?=\d)", "\x00", part)
         for half, full in _PUNCT_MAP:
-            if half == ",":
-                part = _re.sub(r"(?<!\d),(?!\d)", full, part)
-            else:
-                part = part.replace(half, full)
+            part = part.replace(half, full)
+        part = part.replace("\x00", ",")
         out.append(part)
     return "".join(out)
 
@@ -86,8 +96,9 @@ class Table:
     raw: list[list] | None = None   # 导出 Excel 时用的原始数值(可选)
 
     def to_dict(self) -> dict:
-        return {"title": self.title, "headers": self.headers,
-                "rows": self.rows, "note": self.note}
+        # 序列化时统一再做一次标点归一,兜住绕过 add_* 的直写字段
+        return {"title": zh_punct(self.title), "headers": self.headers,
+                "rows": self.rows, "note": zh_punct(self.note) if self.note else self.note}
 
 
 @dataclass
@@ -104,7 +115,7 @@ class Result:
         return t
 
     def add_chart(self, title: str, option: dict) -> None:
-        self.charts.append({"title": title, "option": option})
+        self.charts.append({"title": zh_punct(title), "option": option})
 
     def add_interp(self, *paras: str) -> None:
         self.interpretation.extend(zh_punct(p) for p in paras if p)
@@ -115,9 +126,9 @@ class Result:
     def to_dict(self) -> dict:
         return {
             "tables": [t.to_dict() for t in self.tables],
-            "charts": self.charts,
-            "interpretation": self.interpretation,
-            "notes": self.notes,
+            "charts": [{"title": zh_punct(c["title"]), "option": c["option"]} for c in self.charts],
+            "interpretation": [zh_punct(p) for p in self.interpretation],
+            "notes": [zh_punct(n) for n in self.notes],
         }
 
 
