@@ -554,6 +554,9 @@ async function viewModel(id) {
   if (!found) { location.hash = "#/"; return; }
   const prevModel = S.model;
   S.model = found;
+  // 历史回放:恢复当时的槽位与选项(剔除已不存在的变量)
+  const rp = S._replay && S._replay.modelId === id ? S._replay : null;
+  S._replay = null;
   if (!S.ds) {
     const ds = await ensureDs();
     if (!ds) { location.hash = "#/"; toast("请先载入数据集"); return; }
@@ -565,12 +568,29 @@ async function viewModel(id) {
   $("#btnData").addEventListener("click", () => location.hash = `#/data/${S.ds.id}`);
 
   // 初始化槽位与选项(切换模型时重置,同模型内保留已选)
-  if (!prevModel || prevModel.id !== found.id) {
+  if (rp) {
+    S.slots = {};
+    for (const sl of found.slots) S.slots[sl.key] = sl.multiple ? [] : "";
+    Object.assign(S.slots, rp.slots || {});
+    const valid = new Set(S.ds.columns.map(c => c.name));
+    let dropped = [];
+    for (const [k, v] of Object.entries(S.slots)) {
+      const cols = Array.isArray(v) ? v : v ? [v] : [];
+      const bad = cols.filter(c => !valid.has(c));
+      if (bad.length) {
+        dropped.push(...bad);
+        S.slots[k] = Array.isArray(v) ? v.filter(c => valid.has(c)) : "";
+      }
+    }
+    if (dropped.length) toast(`回放:变量「${dropped.join("、")}」已不在当前数据集中,已移除`, "err");
+    S.options = { ...rp.options };
+  } else if (!prevModel || prevModel.id !== found.id) {
     S.slots = {};
     for (const sl of found.slots) S.slots[sl.key] = sl.multiple ? [] : "";
     S.options = {};
     for (const o of found.options) S.options[o.key] = o.default;
   }
+  for (const o of found.options) if (!(o.key in S.options)) S.options[o.key] = o.default;
 
   const accepted = (slot) => new Set(slot.types);
   const colInfo = Object.fromEntries(S.ds.columns.map(c => [c.name, c]));
@@ -644,6 +664,7 @@ async function viewModel(id) {
   }));
 
   $("#btnRun").addEventListener("click", runModel);
+  if (rp) runModel();
 }
 
 function viewModelRefreshPanel() {
@@ -730,6 +751,9 @@ function recordHistory(result) {
     modelName: S.model?.name || result?.model?.name || "分析",
     modelCat: result?.model?.category || S.model?.category || "",
     dsName: S.ds?.name || "数据集",
+    dsId: S.ds?.id || "",
+    slots: JSON.parse(JSON.stringify(S.slots || {})),
+    options: JSON.parse(JSON.stringify(S.options || {})),
     slotsText,
     result,
   });
@@ -764,6 +788,8 @@ function viewReport() {
           <div class="report-meta">${esc(e.modelCat)} · 数据集「${esc(e.dsName)}」 · ${e.time.toLocaleString("zh-CN")}</div>
           ${e.slotsText ? `<div class="report-slots">${esc(e.slotsText)}</div>` : ""}
         </div>
+        <span style="flex:1"></span>
+        ${e.modelId ? `<button class="btn ghost" data-replay="${i}" title="恢复当时的模型、数据集与参数并重新计算">↻ 重新运行</button>` : ""}
       </div>
       <div class="report-body">${resultFlowHtml(e.result, "all", `rp${i}-`)}</div>
     </section>`).join("");
@@ -783,6 +809,7 @@ function viewReport() {
       <ol>${S.history.map((e, i) => `<li><a href="#rp${i}">${esc(e.modelName)}<span class="toc-meta">${esc(e.dsName)}</span></a></li>`).join("")}</ol>
     </nav>
     ${html}`;
+  $$("[data-replay]").forEach(b => b.addEventListener("click", () => replayHistory(+b.dataset.replay)));
   $("#btnReportExport").addEventListener("click", exportReportHtml);
   $("#btnReportClear").addEventListener("click", () => {
     S.history = [];
@@ -793,6 +820,18 @@ function viewReport() {
     const box = document.getElementById(`chart-rp${i}-${j}`);
     if (box) initChartIn(box, c);
   }));
+}
+
+/* 历史回放:切换到原数据集,恢复参数后自动重新运行 */
+async function replayHistory(i) {
+  const e = S.history[i];
+  if (!e?.modelId) return;
+  if (!S.datasets.some(d => d.id === e.dsId)) { toast("原数据集已被删除,无法回放", "err"); return; }
+  if (!S.ds || S.ds.id !== e.dsId) await selectDataset(e.dsId, { silent: true });
+  S._replay = { modelId: e.modelId, slots: e.slots || {}, options: e.options || {} };
+  const target = `#/m/${e.modelId}`;
+  if (location.hash === target) route();
+  else location.hash = target;
 }
 
 function exportReportHtml() {
