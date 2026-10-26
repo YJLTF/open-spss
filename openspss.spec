@@ -67,5 +67,5 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    icon=None,
+    icon="open_spss/logo.ico",   # 资源管理器/任务栏图标(scripts/make_logo.py 生成)
 )
