@@ -21,9 +21,10 @@ def base(title: str, tooltip: str = "axis") -> dict:
     return {
         "title": {"text": title, "left": "center", "textStyle": {"fontSize": 13, "fontWeight": 600, "color": "#334155"}},
         "tooltip": {"trigger": tooltip},
-        "legend": {"top": 4, "textStyle": {"color": "#64748b", "fontSize": 11}},
+        "legend": {"top": 26, "type": "scroll", "itemGap": 12,
+                   "textStyle": {"color": "#64748b", "fontSize": 11}},
         "color": PALETTE,
-        "grid": {"left": 56, "right": 28, "top": 52, "bottom": 48, "containLabel": True},
+        "grid": {"left": 56, "right": 28, "top": 64, "bottom": 48, "containLabel": True},
     }
 
 
