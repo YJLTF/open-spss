@@ -376,12 +376,17 @@ def _run_chisq(ds: Dataset, sl: dict, op: dict) -> Result:
         raise ModelError("两个变量不能相同")
     sub = ds.df[[a, b]].dropna()
     w = None
+    wname = None
     if sl.get("freq"):
-        w = pd.to_numeric(ds.df[sl["freq"]], errors="coerce")
-        sub = ds.df[[a, b, sl["freq"]]].dropna()
-        w = sub[sl["freq"]]
+        wname = sl["freq"]
+    elif ds.weight_col:                       # 加权个案:数据集权重充当频数
+        wname = ds.weight_col
+    if wname:
+        w = pd.to_numeric(ds.df[wname], errors="coerce")
+        sub = ds.df[[a, b, wname]].dropna()
+        w = sub[wname]
     if w is not None and len(w) > 0:
-        ct = pd.pivot_table(sub, index=a, columns=b, values=sl["freq"], aggfunc="sum").fillna(0)
+        ct = pd.pivot_table(sub, index=a, columns=b, values=wname, aggfunc="sum").fillna(0)
     else:
         ct = pd.crosstab(sub[a].astype(str), sub[b].astype(str))
     ct = ct.loc[(ct.sum(axis=1) > 0), ct.columns[(ct.sum(axis=0) > 0)]]
@@ -396,7 +401,8 @@ def _run_chisq(ds: Dataset, sl: dict, op: dict) -> Result:
         rows.append([str(lev)] + [f"{int(ct.iloc[i, j])} ({ct.iloc[i, j] / row_total * 100:.1f}%)" for j in range(ct.shape[1])]
                     + [int(row_total)])
     rows.append(["列合计"] + [int(ct.iloc[:, j].sum()) for j in range(ct.shape[1])] + [int(n)])
-    res.add_table(f"交叉表:「{a}」×「{b}」(行百分比)", [f"{a}\\{b}"] + [str(c) for c in ct.columns] + ["行合计"], rows)
+    wt_tag = f"(按「{wname}」加权)" if wname else "(行百分比)"
+    res.add_table(f"交叉表:「{a}」×「{b}」{wt_tag}", [f"{a}\\{b}"] + [str(c) for c in ct.columns] + ["行合计"], rows)
     low_exp = float((exp < 5).mean())
     note = (";" + (f"E<5 的单元格占 {low_exp * 100:.0f}%," + ("满足卡方检验要求(<20%)" if low_exp < 0.2 else "超过 20%,结论仅供参考(建议合并水平或 Fisher)")) if ct.shape == (2, 2) else "")
     res.add_table("卡方检验结果", ["卡方值χ²", "自由度df", "p 值", "Cramér's V", "显著?"],

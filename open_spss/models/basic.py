@@ -12,30 +12,66 @@ from ..core.results import ModelError, Result, fnum, fp, judge_p, stars
 
 
 # ---------------------------------------------------------------- 频数分析
+def _wcount(s: pd.Series, w: pd.Series | None) -> pd.Series:
+    """按水平汇总权重;未加权时退化为计数。"""
+    if w is None:
+        return s.value_counts().astype(float)
+    frame = pd.concat([s.rename("__v__"), w], axis=1).dropna()
+    return frame.groupby("__v__", observed=True)["__w__"].sum().sort_values(ascending=False)
+
+
+def _w_moments(x: np.ndarray, w: np.ndarray):
+    """加权均值/无偏标准差/偏度/峰度(频数权重语义)。"""
+    sw = w.sum()
+    mu = float((x * w).sum() / sw)
+    if sw <= 1:
+        return mu, np.nan, np.nan, np.nan
+    d = x - mu
+    var = float((w * d * d).sum() / (sw - 1))
+    sd = var ** 0.5
+    m3 = float((w * d ** 3).sum() / sw)
+    m4 = float((w * d ** 4).sum() / sw)
+    skew = m3 / sd ** 3 if sd else np.nan
+    kurt = m4 / sd ** 4 - 3 if sd else np.nan
+    return mu, sd, skew, kurt
+
+
+def _w_quantile(x: np.ndarray, w: np.ndarray, q: float) -> float:
+    """加权分位数:按累积权重的 CDF 线性插值。"""
+    order = np.argsort(x, kind="stable")
+    xs, ws = x[order], w[order]
+    cw = np.cumsum(ws)
+    return float(np.interp(q * cw[-1], cw, xs))
+
+
 def _run_frequency(ds: Dataset, sl: dict, op: dict) -> Result:
     res = Result()
     cols = sl["vars"]
+    w = ds.weights()
     for c in cols:
         s = get_series(ds, c).dropna().astype(str)
         if s.empty:
             raise ModelError(f"列「{c}」无有效数据")
-        vc = s.value_counts()
-        total = int(vc.sum())
+        ws = w.reindex(s.index) if w is not None else None
+        vc = _wcount(s, ws)
+        total = float(vc.sum())
         cum = 0.0
         rows = []
         for lev, n in vc.items():
             pct = n / total * 100
             cum += pct
-            rows.append([lev, int(n), f"{pct:.2f}%", f"{cum:.2f}%"])
-        rows.append(["合计", total, "100%", ""])
+            rows.append([lev, fnum(n, 1), f"{pct:.2f}%", f"{cum:.2f}%"])
+        rows.append(["合计", fnum(total, 1), "100%", ""])
         res.add_table(f"「{c}」频数分布", ["水平", "频数", "百分比", "累积百分比"], rows,
-                      note=f"有效样本 N={total}")
+                      note=f"有效样本 N={fnum(total, 1)}")
         levels = [str(k) for k in vc.index][:10]
         res.add_chart(f"「{c}」频数柱状图",
-                      ch.bar_chart(f"「{c}」频数分布", levels, {"频数": [int(vc[l]) for l in levels]}, y_name="频数"))
+                      ch.bar_chart(f"「{c}」频数分布", levels, {"频数": [round(float(vc[l]), 2) for l in levels]}, y_name="频数"))
         if op.get("chart_pie") and c == cols[0]:
             res.add_chart(f"「{c}」占比饼图", ch.pie_chart(f"「{c}」构成占比",
-                          [(str(k), int(v)) for k, v in vc.head(8).items()]))
+                          [(str(k), round(float(v), 2)) for k, v in vc.head(8).items()]))
+    if w is not None:
+        res.add_note(f"已按「{ds.weight_col}」加权:频数为权重合计,百分比基于加权频数。")
     return res
 
 
@@ -56,20 +92,38 @@ def _run_descriptive(ds: Dataset, sl: dict, op: dict) -> Result:
     headers = ["变量名", "样本量", "最小值", "最大值", "总和", "均值", "标准差",
                "中位数", "变异系数", "偏度", "峰度"]
     rows = []
+    w = ds.weights()
     for c in cols:
         s = as_numeric(ds, c).dropna()
         if len(s) < 2:
             raise ModelError(f"列「{c}」有效样本不足 2")
-        mu, sd = s.mean(), s.std(ddof=1)
-        rows.append([
-            c, int(len(s)), fnum(s.min(), 3), fnum(s.max(), 3), fnum(s.sum(), 3),
-            fnum(mu), fnum(sd), fnum(s.median()), fnum(abs(sd / mu) if mu else np.nan, 3),
-            fnum(s.skew()), fnum(s.kurt()),
-        ])
+        if w is None:
+            mu, sd = s.mean(), s.std(ddof=1)
+            rows.append([
+                c, int(len(s)), fnum(s.min(), 3), fnum(s.max(), 3), fnum(s.sum(), 3),
+                fnum(mu), fnum(sd), fnum(s.median()), fnum(abs(sd / mu) if mu else np.nan, 3),
+                fnum(s.skew()), fnum(s.kurt()),
+            ])
+        else:
+            ws = w.reindex(s.index).fillna(0).values
+            if ws.sum() <= 1 or (ws > 0).sum() < 2:
+                raise ModelError(f"列「{c}」的加权有效样本不足 2")
+            x = s.values
+            mu, sd, skew, kurt = _w_moments(x, ws)
+            med = _w_quantile(x, ws, 0.5)
+            rows.append([
+                c, fnum(ws.sum(), 1), fnum(s.min(), 3), fnum(s.max(), 3),
+                fnum(float((x * ws).sum()), 3),
+                fnum(mu), fnum(sd), fnum(med), fnum(abs(sd / mu) if mu else np.nan, 3),
+                fnum(skew, 3), fnum(kurt, 3),
+            ])
         if len(cols) <= 6:
             res.add_chart(f"「{c}」分布直方图", ch.hist_chart(f"「{c}」频数分布", s.values, x_name=c))
+    if w is not None:
+        headers[1] = "加权样本量"
     res.add_table("描述性统计结果", headers, rows,
-                  note="变异系数=标准差/均值;偏度、峰度以正态分布为参照(0)")
+                  note=("变异系数=标准差/均值;偏度、峰度以正态分布为参照(0)"
+                        + (f";已按「{ds.weight_col}」加权,均值/标准差/分位数等为加权估计" if w is not None else "")))
     res.add_interp(
         f"本次共对 **{len(cols)}** 个定量变量进行描述性统计,有效样本量 "
         f"**{rows[0][1]}**。其中「{cols[0]}」的平均值为 **{rows[0][5]}**,标准差 **{rows[0][6]}**,"

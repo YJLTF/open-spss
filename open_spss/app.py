@@ -81,6 +81,10 @@ class LabelsPayload(BaseModel):
     vals: dict = Field(default_factory=dict)
 
 
+class WeightPayload(BaseModel):
+    column: str | None = None
+
+
 class MergePayload(BaseModel):
     other_id: str
     how: str = "append"          # append 纵向追加 / join 横向关联
@@ -230,6 +234,13 @@ def set_labels(ds_id: str, payload: LabelsPayload):
     ds = STORE.get(ds_id)
     ds.set_labels(payload.column, payload.label, payload.vals or None)
     return {"ok": True, "columns": ds.col_meta()}
+
+
+@app.post("/api/datasets/{ds_id}/weight")
+def set_weight(ds_id: str, payload: WeightPayload):
+    ds = STORE.get(ds_id)
+    ds.set_weight(payload.column or None)
+    return {"ok": True, "weightCol": ds.weight_col}
 
 
 @app.post("/api/datasets/{ds_id}/merge")

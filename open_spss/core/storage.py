@@ -34,7 +34,8 @@ def save_dataset(ds) -> None:
     path = os.path.join(data_dir(), f"{ds.id}{EXT}")
     payload = {
         "meta": {"id": ds.id, "name": ds.name, "source": ds.source,
-                 "created": ds.created, "columns": ds.columns, "log": ds.log[-200:]},
+                 "created": ds.created, "columns": ds.columns, "log": ds.log[-200:],
+                 "weight_col": ds.weight_col},
         "df": ds.df,
     }
     tmp = f"{path}.tmp"
@@ -87,6 +88,7 @@ def load_all(store) -> int:
         if names and list(map(str, df.columns)) == names:
             ds.columns = saved_cols
         ds.log = meta.get("log", [])
+        ds.weight_col = meta.get("weight_col")
         store.datasets[ds.id] = ds
         store.order.append(ds.id)
         n += 1

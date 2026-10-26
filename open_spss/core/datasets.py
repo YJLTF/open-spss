@@ -31,6 +31,7 @@ class Dataset:
         self.source = source
         self.created = time.time()
         self.log: list[str] = []
+        self.weight_col: str | None = None
         self._undo: list[tuple] = []
         self._redo: list[tuple] = []
         self._infer_all()
@@ -90,7 +91,27 @@ class Dataset:
             "created": int(self.created), "log": self.log[-12:],
             "columns": self.col_meta(),
             "canUndo": bool(self._undo), "canRedo": bool(self._redo),
+            "weightCol": self.weight_col,
         }
+
+    # ---------- 加权个案 ----------
+    def set_weight(self, column: str | None) -> None:
+        if column:
+            self._col_meta_of(column)
+            s = pd.to_numeric(self.df[column], errors="coerce")
+            if s.isna().any():
+                raise ModelError(f"「{column}」存在无法转为数值的取值,不能作权重")
+            if (s < 0).any():
+                raise ModelError("权重不能为负")
+        self.weight_col = column or None
+        self.save()
+
+    def weights(self) -> pd.Series | None:
+        """加权个案:返回与数据框对齐的数值权重;未设置返回 None。"""
+        if not self.weight_col:
+            return None
+        w = pd.to_numeric(self.df[self.weight_col], errors="coerce").fillna(0).astype(float)
+        return w.rename("__w__")
 
     def preview(self, page: int = 1, page_size: int = 50) -> dict:
         total = len(self.df)

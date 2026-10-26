@@ -5,6 +5,7 @@ import pytest
 
 from open_spss.core import datasets as dsm
 from open_spss.core.results import ModelError
+from open_spss.models import CATEGORIES  # noqa: F401  触发模型注册
 from open_spss.processing import OPERATIONS
 
 
@@ -125,3 +126,43 @@ def test_merge_append_and_join(store):
     assert merged["w"].tolist() == [200]
     left = pd.merge(a.df, b.df, on="k", how="left")
     assert len(left) == 2 and left["w"].isna().any()
+
+
+# ---------------------------------------------------------------- 加权个案
+def test_set_weight_validation(store):
+    ds = store.add("权重", pd.DataFrame({"w": [1.0, 2.0, 2.0], "v": ["a", "b", "a"], "bad": ["x", "y", "z"]}))
+    ds.set_weight("w")
+    assert ds.weight_col == "w" and ds.summary()["weightCol"] == "w"
+    with pytest.raises(ModelError, match="不能作权重"):
+        ds.set_weight("bad")
+    with pytest.raises(ModelError, match="不能为负"):
+        store.add("neg", pd.DataFrame({"w": [1, -2]})).set_weight("w")
+    ds.set_weight(None)
+    assert ds.weight_col is None
+
+
+def test_weighted_descriptive_and_frequency(store):
+    ds = store.add("加权", pd.DataFrame({"v": [10.0, 20.0], "w": [1.0, 3.0]}))
+    ds.set_weight("w")
+    from open_spss.core.registry import REGISTRY
+    res = REGISTRY.get("descriptive").runner(ds, {"vars": ["v"]}, {})
+    row = res.tables[0].rows[0]
+    assert abs(float(row[1]) - 4.0) < 1e-6            # 加权样本量 = 1+3
+    assert abs(float(row[5]) - 17.5) < 1e-6           # 加权均值 = (10+60)/4
+    assert "加权" in res.tables[0].note
+
+    res2 = REGISTRY.get("frequency").runner(ds, {"vars": ["v"]}, {})
+    assert res2.tables[0].rows[0][1] == "3"           # v=20 加权频数 3(降序)
+    assert res2.tables[0].rows[1][1] == "1"           # v=10 加权频数 1
+    assert res2.notes and "加权" in res2.notes[0]
+
+
+def test_weighted_chisq(store):
+    from open_spss.core.registry import REGISTRY
+    ds = store.add("卡方", pd.DataFrame({"x": ["是", "否", "是", "否"], "y": ["甲", "甲", "乙", "乙"],
+                                         "w": [2.0, 2.0, 2.0, 2.0]}))
+    ds.set_weight("w")
+    res = REGISTRY.get("chisq").runner(ds, {"x": "x", "y": "y", "freq": ""}, {"correction": True, "fisher": True, "alpha": 0.05})
+    assert "按「w」加权" in res.tables[0].title
+    # 权重全为 2 等价于频数翻倍:p 值会变小,但列合计应为加权值 4
+    assert res.tables[0].rows[-1][-1] == 8

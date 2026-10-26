@@ -215,6 +215,7 @@ function renderDataView() {
     <button class="btn" id="btnUndo" ${ds.canUndo ? "" : "disabled"} title="撤销 (Ctrl+Z)">⤺ 撤销</button>
     <button class="btn" id="btnRedo" ${ds.canRedo ? "" : "disabled"} title="重做 (Ctrl+Y)">⤻ 重做</button>
     <button class="btn" id="btnMerge" title="与另一数据集纵向追加 / 横向关联">⧉ 合并</button>
+    <button class="btn ${ds.weightCol ? "primary" : ""}" id="btnWeight" title="加权个案:按某列取值加权,描述/频数/卡方优先支持">⚖ 加权${ds.weightCol ? ":" + esc(ds.weightCol) : ""}</button>
     <button class="btn" id="btnProc">⚙ 数据处理</button>
     <button class="btn primary" id="btnAnalyze">开始分析 →</button>`);
   $("#btnAnalyze").addEventListener("click", () => { location.hash = "#/"; });
@@ -222,6 +223,7 @@ function renderDataView() {
   $("#btnUndo").addEventListener("click", doUndo);
   $("#btnRedo").addEventListener("click", doRedo);
   $("#btnMerge").addEventListener("click", openMergeModal);
+  $("#btnWeight").addEventListener("click", () => weightMenu($("#btnWeight")));
 
   const p = ds.preview;
   const colMeta = Object.fromEntries(ds.columns.map(c => [c.name, c]));
@@ -382,6 +384,25 @@ function openLabelModal(col) {
       renderDataView();
     } catch (err) { toast(err.message, "err"); }
   });
+}
+
+/* 加权个案:选择权重列或取消加权 */
+function weightMenu(anchor) {
+  const quantCols = S.ds.columns.filter(c => c.dtype === "quant");
+  const pop = openPopover(anchor, `<div class="pop-head">加权个案</div><div class="pop-list">
+    <button class="pop-item ${S.ds.weightCol ? "" : "active"}" data-w="">⚖ 不加权</button>
+    ${quantCols.map(c => `<button class="pop-item ${S.ds.weightCol === c.name ? "active" : ""}" data-w="${esc(c.name)}">⚖ ${esc(c.name)}</button>`).join("")
+    || `<div style="padding:10px;font-size:12px;color:var(--ink-3)">暂无定量列可作为权重</div>`}
+  </div>`);
+  $$(".pop-item", pop).forEach(b => b.addEventListener("click", async () => {
+    closePopover();
+    try {
+      await api(`/api/datasets/${S.ds.id}/weight`, { method: "POST", body: { column: b.dataset.w || null } });
+      S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=50`);
+      renderDataView();
+      toast(b.dataset.w ? `已按「${b.dataset.w}」加权:描述统计/频数/卡方将使用加权计算` : "已取消加权", "ok");
+    } catch (err) { toast(err.message, "err"); }
+  }));
 }
 
 /* 数据集合并:纵向追加 / 横向关联,生成新数据集 */
