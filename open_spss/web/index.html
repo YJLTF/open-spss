@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenSPSS · 开源统计分析平台</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <a class="logo" href="#/">
+      <span class="logo-mark">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="url(#lg)"/>
+          <path d="M7.5 14.5l3-4 2.5 3 3.5-5" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="lg" x1="3" y1="3" x2="21" y2="21"><stop stop-color="#5B6BFF"/><stop offset="1" stop-color="#3F8BFF"/></linearGradient></defs>
+        </svg>
+      </span>
+      <span class="logo-text">Open<em>SPSS</em></span>
+    </a>
+    <div id="datasetBox"></div>
+    <a class="side-nav-item" href="#/report">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h3"/></svg>
+      综合分析报告
+      <span class="side-badge" id="historyCount">0</span>
+    </a>
+    <div class="side-search">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="modelSearch" type="text" placeholder="搜索分析模型…" autocomplete="off">
+    </div>
+    <nav id="modelTree" aria-label="分析模型"></nav>
+    <div class="side-foot">
+      <span id="modelCount"></span>
+      <a href="https://github.com/YJLTF/open-spss" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="#" id="exitApp" title="停止本地服务并退出" style="display:none">退出</a>
+    </div>
+  </aside>
+
+  <div id="main">
+    <header id="topbar"></header>
+    <section id="view" tabindex="-1"></section>
+  </div>
+</div>
+
+<div id="popover-root"></div>
+<div id="modal-root"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="/assets/echarts.min.js"></script>
+<script src="/assets/app.js"></script>
+</body>
+</html>

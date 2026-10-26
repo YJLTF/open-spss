@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-spss"
+version = "1.0.0"
+description = "OpenSPSS —— 开源免费的统计分析平台(参考 SPSSPRO 复现):内置 70+ 数据分析模型,现代 Web 界面,支持本地部署与打包分发"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "OpenSPSS Contributors" }]
+keywords = ["spss", "statistics", "data-analysis", "spsspro", "statsmodels", "anova", "regression"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "statsmodels>=0.14",
+    "scikit-learn>=1.3",
+    "openpyxl>=3.1",
+    "python-multipart>=0.0.9",
+    "pyreadstat>=1.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "httpx>=0.26"]
+exe = ["pyinstaller>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/YJLTF/open-spss"
+
+[project.scripts]
+open-spss = "open_spss.cli:main"
+
+[tool.setuptools]
+packages = { find = { include = ["open_spss*"] } }
+
+[tool.setuptools.package-data]
+"open_spss.web" = ["**/*"]
