@@ -8,8 +8,37 @@ window.addEventListener("resize", () => {
   $$(".chart-box").forEach(b => echarts.getInstanceByDom(b)?.resize());
 });
 
+/* 浅色→暗色:对图表 option 做已知颜色的映射(渲染层换肤,后端 option 不变) */
+const THEME_COLOR_MAP = {
+  "#334155": "#C9D2E8", "#64748b": "#8B96B5", "#475569": "#A9B4CF",
+  "#cbd5e1": "#3A4468", "#eef2f7": "#232B4C",
+  "#f8fafc": "#232B4C", "#f1f5f9": "#1E2643",
+  "#94a3b8": "#5A6689", "#e2e8f0": "#333D63",
+  "#475569": "#A9B4CF", "#fff": "#171D36",
+};
+
+function applyThemeToOption(opt) {
+  if (document.documentElement.dataset.theme !== "dark") return opt;
+  const walk = (node) => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (node && typeof node === "object") {
+      for (const [k, v] of Object.entries(node)) {
+        if (typeof v === "string" && THEME_COLOR_MAP[v.toLowerCase()]) node[k] = THEME_COLOR_MAP[v.toLowerCase()];
+        else if (v && typeof v === "object") walk(v);
+      }
+    }
+  };
+  walk(opt);
+  if (opt.backgroundColor == null) opt.backgroundColor = "transparent";
+  return opt;
+}
+
+function themePngBg() {
+  return document.documentElement.dataset.theme === "dark" ? "#171D36" : "#fff";
+}
+
 function initChartIn(box, chart) {
-  const opt = JSON.parse(JSON.stringify(chart.option));
+  const opt = applyThemeToOption(JSON.parse(JSON.stringify(chart.option)));
   // 热力图 {c} 模板会输出整个 [x,y,v] 数组,替换为取值函数
   (opt.series || []).forEach(sr => {
     if (sr.type === "heatmap" && sr.label && sr.label.formatter === "{c}") {
@@ -17,6 +46,16 @@ function initChartIn(box, chart) {
         const v = Array.isArray(p.value) ? p.value[2] : p.value;
         return typeof v === "number" ? (+v.toFixed(4)).toString() : String(v ?? "");
       };
+    }
+  });
+  // 小提琴图等数值 x 轴的组名标注:后端给 _catLabels,这里注入 formatter(JSON 无法携带函数)
+  (Array.isArray(opt.xAxis) ? opt.xAxis : [opt.xAxis]).forEach(ax => {
+    if (ax && ax._catLabels) {
+      const names = ax._catLabels;
+      ax.axisLabel = { ...ax.axisLabel, show: true, formatter: (v) => names[Math.round(v)] || "" };
+      ax.axisTick = { show: true, alignWithLabel: true, interval: 0, length: 4 };
+      ax.splitLine = { show: false };
+      delete ax._catLabels;
     }
   });
   const inst = echarts.getInstanceByDom(box) || echarts.init(box, null, { renderer: "canvas" });
@@ -30,14 +69,14 @@ function initChartIn(box, chart) {
 function chartPngUrl(box, chart) {
   const existing = echarts.getInstanceByDom(box);
   if (existing) {
-    return Promise.resolve(existing.getDataURL({ pixelRatio: 2, backgroundColor: "#fff" }));
+    return Promise.resolve(existing.getDataURL({ pixelRatio: 2, backgroundColor: themePngBg() }));
   }
   return new Promise((resolve) => {
     const opt = JSON.parse(JSON.stringify(chart.option));
     opt.animation = false;
     const inst = echarts.init(box, null, { renderer: "canvas" });
     inst.setOption(opt);
-    const url = inst.getDataURL({ pixelRatio: 2, backgroundColor: "#fff" });
+    const url = inst.getDataURL({ pixelRatio: 2, backgroundColor: themePngBg() });
     resolve(url);
   });
 }

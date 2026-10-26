@@ -202,7 +202,7 @@ async function uploadFile(file) {
 /* ---------------- 数据页 ---------------- */
 async function viewData(id) {
   S.model = null;
-  try { S.ds = await api(`/api/datasets/${id}?page=${S.dataPage}&page_size=50`); }
+  try { S.ds = await api(`/api/datasets/${id}?page=${S.dataPage}&page_size=${S.pageSize}`); }
   catch { location.hash = "#/"; return; }
   renderTree($("#modelSearch").value);
   renderDataView();
@@ -259,6 +259,9 @@ function renderDataView() {
       <table class="grid"><thead><tr><th class="rowidx">#</th>${head}</tr></thead><tbody>${body}</tbody></table>
       <div class="pager">
         <span>共 ${p.total} 行 · 第 ${p.page} / ${Math.max(1, Math.ceil(p.total / p.pageSize))} 页</span>
+        <select id="pgSize" title="每页行数">
+          ${[50, 100, 200, 500].map(n => `<option value="${n}" ${S.pageSize === n ? "selected" : ""}>${n} 行/页</option>`).join("")}
+        </select>
         <button id="pgPrev" ${p.page <= 1 ? "disabled" : ""}>上一页</button>
         <button id="pgNext" ${p.page * p.pageSize >= p.total ? "disabled" : ""}>下一页</button>
       </div>
@@ -269,6 +272,12 @@ function renderDataView() {
     </div>
   </div>`;
 
+  $("#pgSize").addEventListener("change", (e) => {
+    S.pageSize = +e.target.value;
+    localStorage.setItem("ospss.psize", e.target.value);
+    S.dataPage = 1;
+    viewData(ds.id);
+  });
   $("#pgPrev").addEventListener("click", () => { S.dataPage--; viewData(ds.id); });
   $("#pgNext").addEventListener("click", () => { S.dataPage++; viewData(ds.id); });
   $("#btnAddRow").addEventListener("click", () => editSubmit({ action: "add_row" }));
@@ -380,7 +389,7 @@ function openLabelModal(col) {
       await api(`/api/datasets/${S.ds.id}/labels`, { method: "POST", body: { column: col, label: $("#lbVar").value, vals } });
       closeModal();
       toast("标签已保存", "ok");
-      S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=50`);
+      S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=${S.pageSize}`);
       renderDataView();
     } catch (err) { toast(err.message, "err"); }
   });
@@ -398,7 +407,7 @@ function weightMenu(anchor) {
     closePopover();
     try {
       await api(`/api/datasets/${S.ds.id}/weight`, { method: "POST", body: { column: b.dataset.w || null } });
-      S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=50`);
+      S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=${S.pageSize}`);
       renderDataView();
       toast(b.dataset.w ? `已按「${b.dataset.w}」加权:描述统计/频数/卡方将使用加权计算` : "已取消加权", "ok");
     } catch (err) { toast(err.message, "err"); }
@@ -800,7 +809,9 @@ function viewReport() {
         <div class="report-meta">生成时间 ${new Date().toLocaleString("zh-CN")} · 导出后可用浏览器打印为 PDF</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn primary" id="btnReportExport">⬇ 导出 HTML 报告</button>
+        <button class="btn primary" id="btnReportExport">⬇ HTML</button>
+        <button class="btn" id="btnReportDocx">⬇ Word</button>
+        <button class="btn" id="btnReportPdf">⬇ PDF</button>
         <button class="btn ghost" id="btnReportClear">清空记录</button>
       </div>
     </div>
@@ -810,7 +821,10 @@ function viewReport() {
     </nav>
     ${html}`;
   $$("[data-replay]").forEach(b => b.addEventListener("click", () => replayHistory(+b.dataset.replay)));
+  $$("[data-replay]").forEach(b => b.addEventListener("click", () => replayHistory(+b.dataset.replay)));
   $("#btnReportExport").addEventListener("click", exportReportHtml);
+  $("#btnReportDocx").addEventListener("click", () => exportReportFile("docx"));
+  $("#btnReportPdf").addEventListener("click", () => exportReportFile("pdf"));
   $("#btnReportClear").addEventListener("click", () => {
     S.history = [];
     toast("已清空分析记录");
@@ -832,6 +846,46 @@ async function replayHistory(i) {
   const target = `#/m/${e.modelId}`;
   if (location.hash === target) route();
   else location.hash = target;
+}
+
+/* 收集报告载荷:解读/表格 + 已渲染图表的 PNG;Word 与 PDF 共用 */
+function collectReport() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  return {
+    title: "数据分析报告",
+    generated: `生成时间:${new Date().toLocaleString("zh-CN")} · 共 ${S.history.length} 项分析 · 由 OpenSPSS 生成`,
+    dark,
+    items: S.history.map((e, i) => ({
+      title: `${i + 1}. ${e.modelName}`,
+      meta: [e.modelCat, `数据集「${e.dsName}」`, e.time.toLocaleString("zh-CN")].filter(Boolean).join(" · "),
+      slots: e.slotsText || "",
+      paragraphs: [...(e.result.interpretation || []), ...(e.result.notes || [])],
+      tables: e.result.tables.map(t => ({ title: t.title, headers: t.headers, rows: t.rows, note: t.note || "" })),
+      charts: e.result.charts.map((c, j) => {
+        const box = document.getElementById(`chart-rp${i}-${j}`);
+        const inst = box && echarts.getInstanceByDom(box);
+        const png = inst ? inst.getDataURL({ pixelRatio: 2, backgroundColor: dark ? "#171D36" : "#fff" }) : "";
+        return { title: c.title, png };
+      }).filter(c => c.png),
+    })),
+  };
+}
+
+async function exportReportFile(kind) {
+  const payload = collectReport();
+  if (!payload.items.length) { toast("暂无分析记录", "err"); return; }
+  toast(`正在生成 ${kind.toUpperCase()}…`);
+  try {
+    const res = await fetch(`/api/export/report/${kind}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(`生成失败(HTTP ${res.status})`);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `OpenSPSS分析报告_${new Date().toISOString().slice(0, 10)}.${kind}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast(`已导出 ${kind.toUpperCase()}`, "ok");
+  } catch (err) { toast(err.message, "err"); }
 }
 
 function exportReportHtml() {
@@ -857,27 +911,32 @@ function exportReportHtml() {
       ${e.result.code ? `<h4>可复现代码</h4><pre class="rp-code">${esc(e.result.code)}</pre>` : ""}
     </section>`;
   }).join("");
+  const dark = document.documentElement.dataset.theme === "dark";
+  const cHi = dark ? "#93A0FF" : "#4653E8", cMut = dark ? "#8B96B5" : "#64748b",
+        cLine = dark ? "#303A5E" : "#e2e8f0", cHead = dark ? "#1C2340" : "#f1f5f9",
+        cStripe = dark ? "#151B33" : "#fafbfe", cInterp = dark ? "#232B52" : "#eef2f7",
+        cSlot = dark ? "#1C2340" : "#f1f5f9";
   const doc = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <title>OpenSPSS 分析报告</title><style>
-body{font-family:"Microsoft YaHei",system-ui,sans-serif;color:#1e293b;max-width:960px;margin:0 auto;padding:32px 24px;line-height:1.65}
-.rp-cover{text-align:center;padding:48px 0 24px;border-bottom:3px solid #4653E8;margin-bottom:24px}
+body{font-family:"Microsoft YaHei",system-ui,sans-serif;color:${dark ? "#DEE4F5" : "#1e293b"};background:${dark ? "#10152B" : "#fff"};max-width:960px;margin:0 auto;padding:32px 24px;line-height:1.65}
+.rp-cover{border-bottom:3px solid ${cHi};text-align:center;padding:48px 0 24px;margin-bottom:24px}
 .rp-cover h1{margin:0 0 8px;font-size:26px;letter-spacing:2px}
-.rp-meta{color:#64748b;font-size:12.5px;margin:2px 0}
-.rp-slots{background:#f1f5f9;border-radius:8px;padding:8px 12px;font-size:12.5px;color:#475569;margin:8px 0}
-.rp-toc{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 24px;margin-bottom:28px;font-size:13.5px}
-.rp-toc a{color:#4653E8;text-decoration:none}
+.rp-meta{color:${cMut};font-size:12.5px;margin:2px 0}
+.rp-slots{background:${cSlot};border-radius:8px;padding:8px 12px;font-size:12.5px;color:#475569;margin:8px 0}
+.rp-toc{background:${cStripe};border:1px solid ${cLine};border-radius:10px;padding:12px 24px;margin-bottom:28px;font-size:13.5px}
+.rp-toc a{color:${cHi};text-decoration:none}
 .rp-item{margin-bottom:36px}
-.rp-item h2{border-left:4px solid #4653E8;padding-left:10px;font-size:19px}
+.rp-item h2{border-left:4px solid ${cHi};padding-left:10px;font-size:19px}
 .rp-item h4{margin:18px 0 6px;font-size:14.5px;color:#334155}
-.rp-interp{background:#eef2ff;border-radius:10px;padding:10px 14px;margin:10px 0}
+.rp-interp{background:${cInterp};border-radius:10px;padding:10px 14px;margin:10px 0}
 .rp-table{border-collapse:collapse;width:100%;font-size:12.5px;margin:6px 0}
-.rp-table th{background:#f1f5f9;text-align:left}
-.rp-table th,.rp-table td{border:1px solid #e2e8f0;padding:5px 9px}
-.rp-table tr:nth-child(even) td{background:#fafbfe}
-.rp-chart{max-width:100%;border:1px solid #eef2f7;border-radius:8px;margin:4px 0 12px}
+.rp-table th{background:${cHead};text-align:left}
+.rp-table th,.rp-table td{border:1px solid ${cLine};padding:5px 9px}
+.rp-table tr:nth-child(even) td{background:${cStripe}}
+.rp-chart{max-width:100%;border:1px solid ${cLine};border-radius:8px;margin:4px 0 12px}
 .rp-code{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre}
-.rp-note{color:#64748b;font-size:12px}
-footer{border-top:1px solid #e2e8f0;margin-top:40px;padding-top:12px;color:#94a3b8;font-size:12px;text-align:center}
+.rp-note{color:${cMut};font-size:12px}
+footer{border-top:1px solid ${cLine};margin-top:40px;padding-top:12px;color:${cMut};font-size:12px;text-align:center}
 @media print{.rp-item{page-break-inside:avoid}body{padding:0}}
 </style></head><body>
 <div class="rp-cover"><h1>数据分析报告</h1>
@@ -894,6 +953,15 @@ ${items}
   a.click();
   URL.revokeObjectURL(a.href);
   toast("报告已导出", "ok");
+}
+
+/* ---------------- 主题 ---------------- */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t === "dark" ? "dark" : "";
+  localStorage.setItem("ospss.theme", document.documentElement.dataset.theme);
+  const btn = $("#themeToggle");
+  if (btn) btn.textContent = document.documentElement.dataset.theme === "dark" ? "☀️ 明色" : "🌙 暗色";
+  route();      // 重渲染当前视图,让 ECharts 按新主题重绘
 }
 
 /* ---------------- 启动 ---------------- */
@@ -919,6 +987,12 @@ async function boot() {
     return;
   }
   $("#modelSearch").addEventListener("input", (e) => renderTree(e.target.value));
+  const tt = $("#themeToggle");
+  tt.textContent = document.documentElement.dataset.theme === "dark" ? "☀️ 明色" : "🌙 暗色";
+  tt.addEventListener("click", (e) => {
+    e.preventDefault();
+    applyTheme(document.documentElement.dataset.theme === "dark" ? "" : "dark");
+  });
 
   // 移除已选变量(全局事件委托,替代每次渲染的临时监听)
   $("#view").addEventListener("click", (e) => {

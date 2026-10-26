@@ -182,7 +182,10 @@ def test_violin_chart_structure():
     groups = {"A": RNG.normal(0, 1, 60).tolist(), "B": RNG.normal(2, 1, 60).tolist()}
     opt = violin_chart("t", groups, show_points=True)
     kinds = [s["type"] for s in opt["series"]]
-    assert "line" in kinds and "boxplot" in kinds and "scatter" in kinds
-    violin = next(s for s in opt["series"] if s["type"] == "line")
-    xs = [p[0] for p in violin["data"]]
+    assert "line" in kinds and "scatter" in kinds     # 箱线也用折线多边形(类目轴会取整小数 x)
+    assert opt["xAxis"]["type"] == "value" and opt["xAxis"]["_catLabels"] == ["A", "B"]
+    violin = next(s for s in opt["series"] if s["type"] == "line" and s["name"] == "A")
+    xs = [p[0] for p in violin["data"] if p[0] is not None]
     assert min(xs) < 0 < max(xs) < 2                  # 多边形围绕类别位置对称展开
+    box = next(s for s in opt["series"] if s["name"] == "A·箱线")
+    assert any(p[0] is None for p in box["data"])     # 箱线段以 null 断开

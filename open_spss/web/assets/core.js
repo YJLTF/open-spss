@@ -11,6 +11,7 @@ const S = {
   result: null,
   running: false,
   dataPage: 1,
+  pageSize: +(localStorage.getItem("ospss.psize") || 50),
   history: [],              // 本次会话的分析记录(供综合报告)
 };
 const $ = (sel, el = document) => el.querySelector(sel);

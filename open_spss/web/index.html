@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- 前端资源更新时递增 v= 参数,穿透浏览器缓存(与 open_spss.__version__ 同步) -->
 <title>OpenSPSS · 开源统计分析平台</title>
+<script>document.documentElement.dataset.theme = localStorage.getItem("ospss.theme") === "dark" ? "dark" : "";</script>
 <link rel="icon" href="/favicon.svg?v=1.1.0">
 <link rel="stylesheet" href="/assets/styles.css?v=1.1.0">
 </head>
@@ -34,6 +35,7 @@
     <nav id="modelTree" aria-label="分析模型"></nav>
     <div class="side-foot">
       <span id="modelCount"></span>
+      <a href="#" id="themeToggle" title="切换明暗主题"></a>
       <a href="https://github.com/YJLTF/open-spss" target="_blank" rel="noreferrer">GitHub</a>
       <a href="#" id="exitApp" title="停止本地服务并退出" style="display:none">退出</a>
     </div>

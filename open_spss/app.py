@@ -18,12 +18,18 @@ from .core.registry import REGISTRY
 from .core.results import ModelError, Result
 from .models import CATEGORIES  # noqa: F401  触发注册
 from .processing import OPERATIONS
+from .report_export import ReportPayload, build_docx, build_pdf
 from .samples import SAMPLES, create as create_sample
 
 app = FastAPI(title="OpenSPSS", version=__version__)
 
+import re  # noqa: E402
+import time  # noqa: E402
+
 import os  # noqa: E402
 import sys  # noqa: E402
+
+from fastapi import Response  # noqa: E402
 
 WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 if not os.path.isdir(WEB_DIR) and getattr(sys, "_MEIPASS", None):
@@ -36,6 +42,25 @@ if not os.path.isdir(WEB_DIR) and getattr(sys, "_MEIPASS", None):
 @app.exception_handler(ModelError)
 async def model_error_handler(_req, exc: ModelError):
     return JSONResponse(status_code=400, detail=str(exc))
+
+
+_START_TS = int(time.time())
+_CACHE_PAT = re.compile(r'((?:href|src)="[^"]*\?v=)[^"]*"')
+
+
+@app.middleware("http")
+async def cache_bust_index(request, call_next):
+    """index.html 的静态资源缓存参数在响应时注入「版本-启动时间」,
+    前端文件一有更新、服务一重启即自动换新 URL,无需手工同步。"""
+    resp = await call_next(request)
+    if request.url.path in ("/", "/index.html"):
+        body = b""
+        async for chunk in resp.body_iterator:
+            body += chunk
+        text = _CACHE_PAT.sub(lambda m: m.group(1) + f"{__version__}.{_START_TS}\"", body.decode("utf-8"))
+        return Response(content=text, media_type="text/html",
+                        headers={"Cache-Control": "no-cache"})
+    return resp
 
 
 class RunPayload(BaseModel):
@@ -349,6 +374,33 @@ def export_xlsx(payload: ExportPayload):
         io.BytesIO(data),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=result.xlsx"},
+    )
+
+
+# ---------------------------------------------------------------- 报告导出(Word / PDF)
+@app.post("/api/export/report/docx")
+def export_report_docx(payload: ReportPayload):
+    from urllib.parse import quote
+
+    data = build_docx(payload)
+    fname = quote("OpenSPSS分析报告.docx")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=report.docx; filename*=UTF-8''{fname}"},
+    )
+
+
+@app.post("/api/export/report/pdf")
+def export_report_pdf(payload: ReportPayload):
+    from urllib.parse import quote
+
+    data = build_pdf(payload)
+    fname = quote("OpenSPSS分析报告.pdf")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=report.pdf; filename*=UTF-8''{fname}"},
     )
 
 
