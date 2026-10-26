@@ -212,34 +212,46 @@ function renderDataView() {
   const ds = S.ds;
   setTopbar("数据", ds.name, `
     <span class="chip-note">${ds.rows} 行 × ${ds.cols} 列</span>
+    <button class="btn" id="btnUndo" ${ds.canUndo ? "" : "disabled"} title="撤销 (Ctrl+Z)">⤺ 撤销</button>
+    <button class="btn" id="btnRedo" ${ds.canRedo ? "" : "disabled"} title="重做 (Ctrl+Y)">⤻ 重做</button>
+    <button class="btn" id="btnMerge" title="与另一数据集纵向追加 / 横向关联">⧉ 合并</button>
     <button class="btn" id="btnProc">⚙ 数据处理</button>
     <button class="btn primary" id="btnAnalyze">开始分析 →</button>`);
   $("#btnAnalyze").addEventListener("click", () => { location.hash = "#/"; });
   $("#btnProc").addEventListener("click", openProcessModal);
+  $("#btnUndo").addEventListener("click", doUndo);
+  $("#btnRedo").addEventListener("click", doRedo);
+  $("#btnMerge").addEventListener("click", openMergeModal);
 
   const p = ds.preview;
   const colMeta = Object.fromEntries(ds.columns.map(c => [c.name, c]));
   const head = p.columns.map(c => {
     const meta = colMeta[c];
-    return `<th title="点击修改变量类型" data-col="${esc(c)}">${esc(c)}<br>${vtBadge(meta.dtype)}</th>`;
+    const lab = meta.label ? ` title="变量标签:${esc(meta.label)}"` : "";
+    return `<th${lab} data-col="${esc(c)}" title="点击修改变量类型">${esc(c)}<br>${vtBadge(meta.dtype)}</th>`;
   }).join("");
-  const body = p.rows.map((row, i) =>
-    `<tr><td class="rowidx">${(p.page - 1) * p.pageSize + i + 1}</td>${row.map(cell => {
+  const body = p.rows.map((row, i) => {
+    const ridx = (p.page - 1) * p.pageSize + i;
+    return `<tr><td class="rowidx">${ridx + 1}<span class="del-row" data-row="${ridx}" title="删除此行">×</span></td>${row.map((cell, ci) => {
       const isNum = typeof cell === "number";
-      return `<td class="${isNum ? "num" : ""}${cell === null ? " empty" : ""}">${cell === null ? "—" : esc(cell)}</td>`;
-    }).join("")}</tr>`).join("");
+      const meta = colMeta[p.columns[ci]];
+      const vl = meta && meta.vals && meta.vals[String(cell)] ? ` title="值标签:${esc(meta.vals[String(cell)])}"` : "";
+      return `<td${vl} data-row="${ridx}" data-col="${esc(p.columns[ci])}" class="${isNum ? "num" : ""}${cell === null ? " empty" : ""}">${cell === null ? "—" : esc(cell)}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
 
   const chips = ds.columns.map(c => `
-    <span class="col-chip" data-col="${esc(c.name)}" title="点击切换类型">
-      <b>${esc(c.name)}</b>${vtBadge(c.dtype)}
+    <span class="col-chip" data-col="${esc(c.name)}" title="${esc(c.label || "点击打开变量设置")}">
+      <b>${esc(c.name)}</b>${c.label ? `<i class="chip-label">${esc(c.label)}</i>` : ""}${vtBadge(c.dtype)}
     </span>`).join("");
 
   $("#view").innerHTML = `
   <div class="page-pad">
     <div class="toolbar">
-      <span class="tb-title">数据浏览</span>
-      <span class="tb-meta">${ds.source === "sample" ? "示例数据" : "上传数据"} · 缺失值显示为 —</span>
+      <span class="tb-title">数据工作台</span>
+      <span class="tb-meta">双击单元格编辑 · ${ds.source === "sample" ? "示例数据" : "上传数据"}</span>
       <span class="spacer"></span>
+      <button class="btn ghost" id="btnAddRow">＋ 行</button>
     </div>
     <div class="card data-table-wrap">
       <table class="grid"><thead><tr><th class="rowidx">#</th>${head}</tr></thead><tbody>${body}</tbody></table>
@@ -250,15 +262,62 @@ function renderDataView() {
       </div>
     </div>
     <div class="card col-panel">
-      <h4>变量类型 <span style="font-weight:400;font-size:12px;color:var(--ink-3)">点击变量可切换定量 / 定类 / 定级类型,分析时按类型校验</span></h4>
+      <h4>变量设置 <span style="font-weight:400;font-size:12px;color:var(--ink-3)">点击变量:切换类型 · 编辑变量/值标签 · 删除列</span></h4>
       <div class="col-chips">${chips}</div>
     </div>
   </div>`;
 
   $("#pgPrev").addEventListener("click", () => { S.dataPage--; viewData(ds.id); });
   $("#pgNext").addEventListener("click", () => { S.dataPage++; viewData(ds.id); });
+  $("#btnAddRow").addEventListener("click", () => editSubmit({ action: "add_row" }));
+  $$(".del-row").forEach(x => x.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (confirm(`删除第 ${+x.dataset.row + 1} 行?`)) editSubmit({ action: "del_row", row: +x.dataset.row });
+  }));
   $$("th[data-col]").forEach(th => th.addEventListener("click", () => cycleType(th.dataset.col)));
-  $$(".col-chip").forEach(ch => ch.addEventListener("click", () => cycleTypeMenu(ch)));
+  $$(".col-chip").forEach(ch => ch.addEventListener("click", () => variableMenu(ch)));
+  $$(".grid tbody td[data-col]").forEach(td => td.addEventListener("dblclick", () => startCellEdit(td)));
+}
+
+/* ---------------- 数据工作台:编辑 / 撤销 / 标签 / 合并 ---------------- */
+async function editSubmit(body) {
+  try {
+    S.ds = await api(`/api/datasets/${S.ds.id}/edit`, { method: "POST", body });
+    renderDataView();
+    return true;
+  } catch (err) { toast(err.message, "err"); return false; }
+}
+
+async function doUndo() {
+  try { S.ds = await api(`/api/datasets/${S.ds.id}/undo`, { method: "POST" }); renderDataView(); }
+  catch (err) { toast(err.message, "err"); }
+}
+
+async function doRedo() {
+  try { S.ds = await api(`/api/datasets/${S.ds.id}/redo`, { method: "POST" }); renderDataView(); }
+  catch (err) { toast(err.message, "err"); }
+}
+
+function startCellEdit(td) {
+  if (td.querySelector("input")) return;
+  const old = td.textContent === "—" ? "" : td.textContent;
+  td.innerHTML = `<input class="cell-input" value="${esc(old)}">`;
+  const input = td.querySelector("input");
+  input.focus(); input.select();
+  let done = false;
+  const commit = async (save) => {
+    if (done) return; done = true;
+    const v = input.value;
+    if (save && v !== old) {
+      const ok = await editSubmit({ action: "cell", row: +td.dataset.row, column: td.dataset.col, value: v });
+      if (!ok) renderDataView();
+    } else renderDataView();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") commit(true);
+    else if (e.key === "Escape") commit(false);
+  });
+  input.addEventListener("blur", () => commit(true));
 }
 
 async function cycleType(col) {
@@ -268,11 +327,19 @@ async function cycleType(col) {
   await setType(col, next);
 }
 
-function cycleTypeMenu(chip) {
+function variableMenu(chip) {
   const col = chip.dataset.col;
-  const pop = openPopover(chip, `<div class="pop-head">${esc(col)} · 变量类型</div><div class="pop-list">${
-    ["quant", "cat", "ordinal"].map(t => `<button class="pop-item" data-t="${t}">${vtBadge(t)} ${VT_LABEL[t]}</button>`).join("")}</div>`);
-  $$(".pop-item", pop).forEach(b => b.addEventListener("click", () => { setType(col, b.dataset.t); closePopover(); }));
+  const meta = S.ds.columns.find(c => c.name === col) || {};
+  const pop = openPopover(chip, `<div class="pop-head">${esc(meta.label || col)} · 变量设置</div><div class="pop-list">${
+    ["quant", "cat", "ordinal"].map(t => `<button class="pop-item" data-t="${t}">${vtBadge(t)} ${VT_LABEL[t]}</button>`).join("")
+  }<button class="pop-item" data-act="label">✎ 编辑变量/值标签</button>
+    <button class="pop-item" data-act="delcol" style="color:#e11d48">🗑 删除列</button></div>`);
+  $$(".pop-item", pop).forEach(b => b.addEventListener("click", () => {
+    closePopover();
+    if (b.dataset.t) setType(col, b.dataset.t);
+    else if (b.dataset.act === "label") openLabelModal(col);
+    else if (confirm(`删除列「${col}」?该操作可撤销。`)) editSubmit({ action: "del_col", column: col });
+  }));
 }
 
 async function setType(col, t) {
@@ -282,6 +349,84 @@ async function setType(col, t) {
     renderDataView();
     toast(`「${col}」→ ${VT_LABEL[t]}`, "ok");
   } catch (err) { toast(err.message, "err"); }
+}
+
+/* 变量标签 / 值标签编辑 */
+function openLabelModal(col) {
+  const meta = S.ds.columns.find(c => c.name === col) || {};
+  const valsText = Object.entries(meta.vals || {}).map(([k, v]) => `${k}=${v}`).join("\n");
+  openModal(`
+    <div class="modal-head"><h3>标签 · ${esc(col)}</h3><button class="modal-close">×</button></div>
+    <div class="modal-body">
+      <div class="opt-row"><label class="field-label">变量标签(结果中更易读的名称)</label>
+        <input id="lbVar" class="input" value="${esc(meta.label || "")}" placeholder="例:治疗疗效评级"></div>
+      <div class="opt-row"><label class="field-label">值标签(每行一条,格式:原值=标签;sav 上传时自动读取)</label>
+        <textarea id="lbVals" class="textarea" rows="6" placeholder="1=无效\n2=有效\n3=显效">${esc(valsText)}</textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="lbCancel">取消</button>
+      <button class="btn primary" id="lbSave">保存标签</button>
+    </div>`);
+  $("#lbCancel").addEventListener("click", closeModal);
+  $("#lbSave").addEventListener("click", async () => {
+    const vals = {};
+    $("#lbVals").value.split("\n").forEach(line => {
+      const i = line.indexOf("=");
+      if (i > 0) { const k = line.slice(0, i).trim(), v = line.slice(i + 1).trim(); if (k) vals[k] = v; }
+    });
+    try {
+      await api(`/api/datasets/${S.ds.id}/labels`, { method: "POST", body: { column: col, label: $("#lbVar").value, vals } });
+      closeModal();
+      toast("标签已保存", "ok");
+      S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=50`);
+      renderDataView();
+    } catch (err) { toast(err.message, "err"); }
+  });
+}
+
+/* 数据集合并:纵向追加 / 横向关联,生成新数据集 */
+function openMergeModal() {
+  const others = S.datasets.filter(d => d.id !== S.ds.id);
+  if (!others.length) { toast("只有一个数据集,先上传或载入另一个", "err"); return; }
+  const colOpts = S.ds.columns.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  openModal(`
+    <div class="modal-head"><h3>合并数据集 · ${esc(S.ds.name)}</h3><button class="modal-close">×</button></div>
+    <div class="modal-body">
+      <div class="opt-row"><label class="field-label">另一数据集</label>
+        <select id="mgOther" class="select">${others.map(d => `<option value="${d.id}">${esc(d.name)}(${d.rows}×${d.cols})</option>`).join("")}</select></div>
+      <div class="opt-row"><label class="field-label">合并方式</label>
+        <select id="mgHow" class="select">
+          <option value="append">纵向追加(上下拼接,按列名对齐)</option>
+          <option value="join">横向关联(按关键列左右连接)</option>
+        </select></div>
+      <div id="mgJoinBox" style="display:none">
+        <div class="opt-row"><label class="field-label">关联键列(需两表同名)</label>
+          <select id="mgOn" class="select">${colOpts}</select></div>
+        <div class="opt-row"><label class="field-label">关联方式</label>
+          <select id="mgJoin" class="select"><option value="inner">内联(取交集)</option><option value="left">左连(保留左表全部行)</option></select></div>
+      </div>
+      <p class="opt-tip">合并生成新数据集,原数据不变。</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="mgCancel">取消</button>
+      <button class="btn primary" id="mgGo">合并</button>
+    </div>`);
+  $("#mgHow").addEventListener("change", () => {
+    $("#mgJoinBox").style.display = $("#mgHow").value === "join" ? "" : "none";
+  });
+  $("#mgCancel").addEventListener("click", closeModal);
+  $("#mgGo").addEventListener("click", async () => {
+    try {
+      const ds = await api(`/api/datasets/${S.ds.id}/merge`, { method: "POST", body: {
+        other_id: $("#mgOther").value, how: $("#mgHow").value,
+        on: $("#mgOn") ? $("#mgOn").value : "", join: $("#mgJoin") ? $("#mgJoin").value : "inner",
+      } });
+      closeModal();
+      await loadDatasets();
+      await selectDataset(ds.id, { silent: true });
+      toast(`已合并:${ds.rows} 行 × ${ds.cols} 列`, "ok");
+    } catch (err) { toast(err.message, "err"); }
+  });
 }
 
 /* ---------------- 数据处理 ---------------- */
@@ -492,9 +637,9 @@ function openVarPicker(anchor, slotKey) {
   const items = usable.map(c => {
     const inAnother = !chosen.has(c.name) && Object.entries(S.slots).some(([k, v]) =>
       k !== slotKey && (S.model.slots.find(s => s.key === k)?.multiple ? v.includes(c.name) : v === c.name));
-    const lv = c.levels ? ` · ${c.levels.length} 水平` : "";
-    return `<button class="pop-item ${inAnother ? "" : ""}" data-col="${esc(c.name)}">
-      ${vtBadge(c.dtype)}<span>${esc(c.name)}</span><span class="pi-meta">${lv}</span></button>`;
+    const lv = [c.label, c.levels ? `${c.levels.length} 水平` : ""].filter(Boolean).join(" · ");
+    return `<button class="pop-item" data-col="${esc(c.name)}" title="${esc(c.label || c.name)}">
+      ${vtBadge(c.dtype)}<span>${esc(c.name)}</span><span class="pi-meta">${esc(lv)}</span></button>`;
   }).join("") || `<div style="padding:14px;font-size:12.5px;color:var(--ink-3)">当前数据集没有符合该槽位类型的变量,可到数据页修改变量类型。</div>`;
   const pop = openPopover(anchor, `<div class="pop-head">选择:${esc(spec.label)}<span style="font-weight:400">${spec.multiple ? "可多选" : "单选"}</span></div><div class="pop-list">${items}</div>`);
   $$(".pop-item", pop).forEach(b => b.addEventListener("click", () => {
@@ -724,6 +869,13 @@ async function boot() {
     if (S.model?.slots.find(s => s.key === slot)?.multiple) S.slots[slot] = S.slots[slot].filter(c => c !== col);
     else S.slots[slot] = "";
     viewModelRefreshPanel();
+  });
+  // 数据页快捷键:Ctrl+Z / Ctrl+Y 撤销与重做
+  document.addEventListener("keydown", (e) => {
+    if (!location.hash.startsWith("#/data/") || !(e.ctrlKey || e.metaKey)) return;
+    if (e.target.closest && e.target.closest("input,textarea,select")) return;
+    if (e.key === "z" || e.key === "Z") { e.preventDefault(); doUndo(); }
+    if (e.key === "y" || e.key === "Y") { e.preventDefault(); doRedo(); }
   });
   window.addEventListener("hashchange", route);
   route();

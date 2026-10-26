@@ -17,21 +17,40 @@ MAX_DATASETS = 30
 DTYPES = {"quant": "定量", "cat": "定类", "ordinal": "定级", "text": "文本"}
 
 
+# 撤销快照:数据行数超过该阈值时禁用(内存保护),栈深上限 20
+UNDO_LIMIT = 20
+MAX_UNDO_ROWS = 200_000
+
+
 class Dataset:
-    def __init__(self, name: str, df: pd.DataFrame, source: str = "upload"):
+    def __init__(self, name: str, df: pd.DataFrame, source: str = "upload",
+                 meta: dict | None = None):
         self.id = uuid.uuid4().hex[:12]
         self.name = name
         self.df = df
         self.source = source
         self.created = time.time()
         self.log: list[str] = []
+        self._undo: list[tuple] = []
+        self._redo: list[tuple] = []
         self._infer_all()
+        self._apply_meta(meta or {})
 
     # ---------- 类型推断 ----------
     def _infer_all(self) -> None:
         self.columns: list[dict] = []
         for col in self.df.columns:
-            self.columns.append({"name": str(col), "dtype": self._infer_col(self.df[col]), "labels": {}})
+            self.columns.append({"name": str(col), "dtype": self._infer_col(self.df[col]),
+                                 "label": "", "vals": {}})
+
+    def _apply_meta(self, meta: dict) -> None:
+        """应用上传时携带的元数据(sav 变量标签/值标签)。"""
+        for c in self.columns:
+            if c["name"] in meta.get("var_labels", {}):
+                c["label"] = str(meta["var_labels"][c["name"]])
+            vl = meta.get("value_labels", {}).get(c["name"])
+            if vl:
+                c["vals"] = {str(k): str(v) for k, v in vl.items()}
 
     @staticmethod
     def _infer_col(s: pd.Series) -> str:
@@ -70,6 +89,7 @@ class Dataset:
             "rows": int(len(self.df)), "cols": int(self.df.shape[1]),
             "created": int(self.created), "log": self.log[-12:],
             "columns": self.col_meta(),
+            "canUndo": bool(self._undo), "canRedo": bool(self._redo),
         }
 
     def preview(self, page: int = 1, page_size: int = 50) -> dict:
@@ -116,6 +136,97 @@ class Dataset:
         self.df = self.df.drop(columns=[c for c in cols if c in self.df.columns])
         self.columns = [c for c in self.columns if c["name"] not in cols]
 
+    # ---------- 撤销 / 重做 ----------
+    def _push_snapshot(self) -> None:
+        if len(self.df) > MAX_UNDO_ROWS:
+            return
+        self._undo.append((self.df.copy(), [dict(c) for c in self.columns]))
+        if len(self._undo) > UNDO_LIMIT:
+            self._undo.pop(0)
+        self._redo.clear()
+
+    def undo(self) -> bool:
+        if not self._undo:
+            return False
+        self._redo.append((self.df.copy(), [dict(c) for c in self.columns]))
+        self.df, self.columns = self._undo.pop()
+        self.save()
+        return True
+
+    def redo(self) -> bool:
+        if not self._redo:
+            return False
+        self._undo.append((self.df.copy(), [dict(c) for c in self.columns]))
+        self.df, self.columns = self._redo.pop()
+        self.save()
+        return True
+
+    # ---------- 单元格 / 行列编辑 ----------
+    def _col_meta_of(self, column: str) -> dict:
+        meta = next((c for c in self.columns if c["name"] == column), None)
+        if meta is None:
+            raise ModelError(f"未找到列: {column}")
+        return meta
+
+    def set_cell(self, row: int, column: str, value) -> None:
+        if row < 0 or row >= len(self.df):
+            raise ModelError(f"行号越界: {row + 1}(共 {len(self.df)} 行)")
+        meta = self._col_meta_of(column)
+        text = "" if value is None else str(value).strip()
+        ridx = self.df.index[row]
+        if text == "" or text.lower() in ("na", "nan", "null", "n/a"):
+            self._push_snapshot()
+            self.df.loc[ridx, column] = None
+        elif meta["dtype"] == "quant":
+            try:
+                num = float(text)
+            except ValueError:
+                raise ModelError(f"「{column}」是定量变量,「{text}」无法转为数值") from None
+            self._push_snapshot()
+            self.df.loc[ridx, column] = num
+        else:
+            self._push_snapshot()
+            self.df.loc[ridx, column] = text
+        self.save()
+
+    def add_row(self) -> None:
+        self._push_snapshot()
+        nxt = int(self.df.index.max()) + 1 if len(self.df) else 0   # 索引可能非连续
+        self.df.loc[nxt] = [None] * self.df.shape[1]
+        self.save()
+
+    def del_row(self, row: int) -> None:
+        if row < 0 or row >= len(self.df):
+            raise ModelError(f"行号越界: {row + 1}")
+        self._push_snapshot()
+        self.df = self.df.drop(self.df.index[row]).reset_index(drop=True)
+        self.save()
+
+    def add_col(self, name: str, dtype: str = "cat") -> None:
+        name = name.strip()
+        if not name or name in self.df.columns:
+            raise ModelError("新列名为空或已存在")
+        if dtype not in DTYPES:
+            raise ModelError(f"未知变量类型: {dtype}")
+        self._push_snapshot()
+        self.df[name] = None
+        self.columns.append({"name": name, "dtype": dtype, "label": "", "vals": {}})
+        self.save()
+
+    def del_col(self, name: str) -> None:
+        self._col_meta_of(name)
+        self._push_snapshot()
+        self.drop_cols([name])
+        self.save()
+
+    # ---------- 变量标签 / 值标签 ----------
+    def set_labels(self, column: str, label: str, vals: dict | None = None) -> None:
+        meta = self._col_meta_of(column)
+        meta["label"] = str(label or "").strip()
+        if vals is not None:
+            meta["vals"] = {str(k): str(v) for k, v in vals.items() if str(k) != ""}
+        self.save()
+
     def note(self, text: str) -> None:
         self.log.append(f"{time.strftime('%H:%M')} {text}")
         self.save()
@@ -156,7 +267,8 @@ class DatasetStore:
             print(f"[storage] load failed: {e}", file=sys.stderr)
 
     # ---------- 读取 ----------
-    def read_upload(self, filename: str, content: bytes) -> pd.DataFrame:
+    def read_upload(self, filename: str, content: bytes) -> tuple[pd.DataFrame, dict]:
+        """解析上传文件,返回 (DataFrame, 元数据);元数据目前含 sav 的变量/值标签。"""
         name = filename.lower()
         try:
             if name.endswith((".csv", ".txt", ".tsv")):
@@ -164,20 +276,25 @@ class DatasetStore:
                 for enc in ("utf-8-sig", "gbk", "utf-8", "latin1"):
                     try:
                         return pd.read_csv(io.BytesIO(content), sep=sep, engine="python",
-                                           encoding=enc, skip_blank_lines=True)
+                                           encoding=enc, skip_blank_lines=True), {}
                     except UnicodeDecodeError:
                         continue
                 raise ModelError("无法识别文件编码,请另存为 UTF-8 后重试")
             if name.endswith((".xlsx", ".xls", ".xlsm")):
-                return pd.read_excel(io.BytesIO(content), sheet_name=0)
+                return pd.read_excel(io.BytesIO(content), sheet_name=0), {}
             if name.endswith(".sav"):
                 import pyreadstat
                 df, meta = pyreadstat.read_sav(io.BytesIO(content))
-                return df
+                extra = {
+                    "var_labels": dict(getattr(meta, "variable_labels", None) or {}),
+                    "value_labels": {k: dict(v) for k, v in
+                                     (getattr(meta, "variable_value_labels", None) or {}).items()},
+                }
+                return df, extra
             if name.endswith(".json"):
-                return pd.read_json(io.BytesIO(content))
+                return pd.read_json(io.BytesIO(content)), {}
             if name.endswith(".parquet"):
-                return pd.read_parquet(io.BytesIO(content))
+                return pd.read_parquet(io.BytesIO(content)), {}
         except ModelError:
             raise
         except Exception as e:  # noqa: BLE001
@@ -185,12 +302,13 @@ class DatasetStore:
         raise ModelError("不支持的文件格式,支持 csv / xlsx / xls / sav / tsv / json / parquet")
 
     # ---------- 管理 ----------
-    def add(self, name: str, df: pd.DataFrame, source: str = "upload") -> Dataset:
+    def add(self, name: str, df: pd.DataFrame, source: str = "upload",
+            meta: dict | None = None) -> Dataset:
         df = df.copy()
         df.columns = [str(c).strip() for c in df.columns]
         if df.shape[1] == 0:
             raise ModelError("未检测到任何列")
-        ds = Dataset(name=name, df=df, source=source)
+        ds = Dataset(name=name, df=df, source=source, meta=meta)
         if len(self.datasets) >= MAX_DATASETS:
             evict = self.order.pop(0)
             self.datasets.pop(evict, None)

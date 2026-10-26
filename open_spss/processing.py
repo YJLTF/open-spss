@@ -157,7 +157,29 @@ def cast_type(ds: Dataset, col: str, target: str) -> str:
     return f"「{col}」类型 → {target}"
 
 
+def apply_value_labels(ds: Dataset, cols: list[str], suffix: str = "") -> str:
+    """把值标签转为文本:按列元数据里的值标签映射替换取值(sav 上传自动携带)。"""
+    out = []
+    for col in cols:
+        meta = next((c for c in ds.columns if c["name"] == col), None)
+        vals = (meta or {}).get("vals") or {}
+        if not vals:
+            continue
+        target = col + suffix
+        ds.df[target] = ds.df[col].map(lambda v, m=vals: m.get(str(v), v))
+        if target == col:
+            meta["dtype"] = "cat"          # 替换后取值变为标签文本
+        else:
+            ds.columns.append({"name": target, "dtype": "cat", "label": meta.get("label", ""),
+                               "vals": {}})
+        out.append(col)
+    if not out:
+        raise ValueError("所选列没有值标签;sav 文件的值标签会在上传时自动读取")
+    return f"值标签已转为文本: {', '.join(out)}"
+
+
 OPERATIONS = {
+    "value_labels": apply_value_labels,
     "fill_missing": fill_missing,
     "drop_missing": drop_missing,
     "winsorize": winsorize,

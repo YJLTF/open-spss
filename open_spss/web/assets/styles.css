@@ -528,3 +528,17 @@ td.pcell .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 pre.code-view{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;
   font-family:Consolas,"JetBrains Mono",monospace;font-size:12px;line-height:1.55;
   overflow:auto;max-height:56vh;white-space:pre;margin:0}
+
+/* ---- 数据工作台:单元格编辑 / 删行 / 变量标签 ---- */
+.grid td{cursor:default}
+.grid td[data-col]:hover{background:#f8faff}
+.grid td input.cell-input{width:100%;border:1.5px solid var(--brand,#5B6BFF);border-radius:6px;
+  padding:2px 6px;font:inherit;font-size:12.5px;outline:none;background:#fff}
+.grid td input.cell-input:focus{box-shadow:0 0 0 3px rgba(91,107,255,.14)}
+td.rowidx{position:relative;white-space:nowrap}
+td.rowidx .del-row{display:inline-block;margin-left:4px;cursor:pointer;color:#cbd5e1;font-weight:700;
+  opacity:0;transition:opacity .12s}
+tr:hover td.rowidx .del-row{opacity:1}
+td.rowidx .del-row:hover{color:#e11d48}
+.col-chip .chip-label{font-style:normal;font-size:11px;color:var(--ink-3,#94a3b8);margin-left:4px;
+  max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}

@@ -4,6 +4,8 @@ from __future__ import annotations
 import io
 import traceback
 
+import pandas as pd
+
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -63,6 +65,29 @@ class RenamePayload(BaseModel):
     new: str
 
 
+class EditPayload(BaseModel):
+    """数据工作台编辑:cell / add_row / del_row / add_col / del_col"""
+    action: str
+    row: int | None = None
+    column: str | None = None
+    name: str | None = None
+    value: str | None = None
+    dtype: str = "cat"
+
+
+class LabelsPayload(BaseModel):
+    column: str
+    label: str = ""
+    vals: dict = Field(default_factory=dict)
+
+
+class MergePayload(BaseModel):
+    other_id: str
+    how: str = "append"          # append 纵向追加 / join 横向关联
+    on: str = ""
+    join: str = "inner"          # join 模式:inner / left
+
+
 # ---------------------------------------------------------------- 元信息
 @app.get("/api/health")
 def health():
@@ -97,8 +122,8 @@ async def upload(file: UploadFile = File(...)):
     content = await file.read()
     if len(content) > 60 * 1024 * 1024:
         raise ModelError("文件超过 60MB 限制")
-    df = STORE.read_upload(file.filename or "data.csv", content)
-    ds = STORE.add(file.filename.rsplit(".", 1)[0], df, source="upload")
+    df, meta = STORE.read_upload(file.filename or "data.csv", content)
+    ds = STORE.add(file.filename.rsplit(".", 1)[0], df, source="upload", meta=meta)
     return ds.summary()
 
 
@@ -153,6 +178,83 @@ def process(ds_id: str, payload: ProcessPayload):
     d["message"] = msg
     d["preview"] = ds.preview(1, 50)
     return d
+
+
+# ---------------------------------------------------------------- 数据工作台
+@app.post("/api/datasets/{ds_id}/edit")
+def edit_dataset(ds_id: str, payload: EditPayload):
+    ds = STORE.get(ds_id)
+    actions = {
+        "cell": lambda: ds.set_cell(payload.row, payload.column, payload.value),
+        "add_row": ds.add_row,
+        "del_row": lambda: ds.del_row(payload.row),
+        "add_col": lambda: ds.add_col(payload.name, payload.dtype),
+        "del_col": lambda: ds.del_col(payload.column),
+    }
+    fn = actions.get(payload.action)
+    if fn is None:
+        raise ModelError(f"未知编辑操作: {payload.action}")
+    fn()
+    ds.note({"cell": f"修改单元格 {payload.column}[{payload.row}]",
+             "add_row": "新增 1 行", "del_row": f"删除第 {payload.row + 1} 行",
+             "add_col": f"新增列「{payload.name}」", "del_col": f"删除列「{payload.column}」"}[payload.action])
+    d = ds.summary()
+    d["preview"] = ds.preview(1, 50)
+    return d
+
+
+@app.post("/api/datasets/{ds_id}/undo")
+def undo_dataset(ds_id: str):
+    ds = STORE.get(ds_id)
+    if not ds.undo():
+        raise ModelError("没有可撤销的操作")
+    ds.note("撤销上一步数据修改")
+    d = ds.summary()
+    d["preview"] = ds.preview(1, 50)
+    return d
+
+
+@app.post("/api/datasets/{ds_id}/redo")
+def redo_dataset(ds_id: str):
+    ds = STORE.get(ds_id)
+    if not ds.redo():
+        raise ModelError("没有可重做的操作")
+    ds.note("重做数据修改")
+    d = ds.summary()
+    d["preview"] = ds.preview(1, 50)
+    return d
+
+
+@app.post("/api/datasets/{ds_id}/labels")
+def set_labels(ds_id: str, payload: LabelsPayload):
+    ds = STORE.get(ds_id)
+    ds.set_labels(payload.column, payload.label, payload.vals or None)
+    return {"ok": True, "columns": ds.col_meta()}
+
+
+@app.post("/api/datasets/{ds_id}/merge")
+def merge_dataset(ds_id: str, payload: MergePayload):
+    ds = STORE.get(ds_id)
+    other = STORE.get(payload.other_id)
+    if payload.how == "append":
+        merged = pd.concat([ds.df, other.df], ignore_index=True)
+        name = f"{ds.name}+{other.name}"
+    elif payload.how == "join":
+        if not payload.on:
+            raise ModelError("请选择关联键列")
+        if payload.on not in ds.df.columns or payload.on not in other.df.columns:
+            raise ModelError(f"关联键「{payload.on}」需同时存在于两个数据集")
+        if payload.join not in ("inner", "left"):
+            raise ModelError("关联方式仅支持 inner / left")
+        merged = pd.merge(ds.df, other.df, on=payload.on, how=payload.join,
+                          suffixes=("", "_2"))
+        name = f"{ds.name}⋈{other.name}"
+    else:
+        raise ModelError("合并方式仅支持 append / join")
+    new_ds = STORE.add(name, merged, source="merge")
+    new_ds.note(f"由「{ds.name}」与「{other.name}」"
+                f"{'纵向追加' if payload.how == 'append' else '按「' + payload.on + '」' + ('左连' if payload.join == 'left' else '内联')}合并")
+    return new_ds.summary()
 
 
 # ---------------------------------------------------------------- 运行模型
