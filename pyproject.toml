@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-spss"
-version = "1.0.0"
-description = "OpenSPSS —— 开源免费的统计分析平台(参考 SPSSPRO 复现):内置 70+ 数据分析模型,现代 Web 界面,支持本地部署与打包分发"
+dynamic = ["version"]
+description = "OpenSPSS —— 开源免费的统计分析平台(参考 SPSSPRO 复现):内置 100+ 数据分析模型,现代 Web 界面,支持本地部署与打包分发"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -42,6 +42,10 @@ open-spss = "open_spss.cli:main"
 
 [tool.setuptools]
 packages = { find = { include = ["open_spss*"] } }
+
+# 版本号单一来源:open_spss/__init__.py 的 __version__,构建与健康接口共用
+[tool.setuptools.dynamic]
+version = { attr = "open_spss.__version__" }
 
 [tool.setuptools.package-data]
 "open_spss.web" = ["**/*"]

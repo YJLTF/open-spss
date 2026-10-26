@@ -2,7 +2,17 @@
 """PyInstaller 打包配置:构建单文件 exe(含前端静态资源)。
 用法:.venv/Scripts/python.exe -m PyInstaller openspss.spec --noconfirm
 """
+import os
+import subprocess
+import sys
+
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+# 构建前重新生成过渡图:模型数与版本号取自注册表/包元数据,新增模型或升版本无需改图
+subprocess.run(
+    [sys.executable, os.path.join("scripts", "make_splash.py")],
+    cwd=SPECPATH, check=True,
+)
 
 hiddenimports = (
     collect_submodules("uvicorn")

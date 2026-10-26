@@ -1,21 +1,26 @@
 """生成启动过渡图 open_spss/splash.png(520x320,2x 超采样抗锯齿)。
 
-图上不画进度条与状态文字:运行期由 launcher 通过 update_text IPC
-按真实启动阶段刷新一行文本(含字符进度条),位置与颜色在 openspss.spec 配置。
-布局:y≈208-252 预留给动态文本;y≈276 为页脚。其余为静态品牌区。
+模型数量与版本号不画死:分别取自 open_spss 模型注册表与包 __version__,
+openspss.spec 在每次构建前自动重新生成本图,新增模型/升版本无需改图。
+y≈208-252 预留给运行期动态文本(位置与颜色在 spec 配置);y≈276 为页脚。
 用法:.venv/Scripts/python.exe scripts/make_splash.py
 """
 import os
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 import make_logo
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
 W, H = 520, 320
 K = 2                       # 超采样倍率
 W2, H2 = W * K, H * K
-OUT = os.path.join(os.path.dirname(__file__), "..", "open_spss", "splash.png")
+OUT = os.path.join(ROOT, "open_spss", "splash.png")
 
 GRAD_TOP = (11, 18, 48)     # #0B1230
 GRAD_BOTTOM = (42, 58, 126) # #2A3A7E
@@ -79,7 +84,12 @@ def _chart_art(base: Image.Image) -> None:
     base.paste(Image.alpha_composite(base.convert("RGBA"), layer).convert("RGB"), (0, 0))
 
 
-def _brand(base: Image.Image) -> None:
+def _models_count() -> int:
+    from open_spss.models import CATEGORIES
+    return sum(len(cat["models"]) for cat in CATEGORIES)
+
+
+def _brand(base: Image.Image, models: int, version: str) -> None:
     d = ImageDraw.Draw(base, "RGBA")
     # 品牌图标块(与 favicon/logo.ico 同一设计)
     tile = make_logo.rounded_gradient()
@@ -97,23 +107,27 @@ def _brand(base: Image.Image) -> None:
     # 标语 + 分隔细线
     d.rectangle((46 * K, 182 * K, 78 * K, 184 * K), fill=(*ACCENT, 200))
     tag = _font("msyh.ttc", 16)
-    d.text((88 * K, 174 * K), "开源统计分析平台 · 100 个分析模型",
+    d.text((88 * K, 174 * K), f"开源统计分析平台 · {models} 个分析模型",
            font=tag, fill=(*INK_SOFT, 255))
     # 页脚(中带 208-252 留空给动态文本)
     foot = _font("msyh.ttc", 13)
     d.text((50 * K, 270 * K), "open-spss", font=foot, fill=(*INK_FAINT, 255))
-    ver = "v1.0.0"
+    ver = f"v{version}"
     wv = d.textlength(ver, font=foot)
     d.text(((W - 50) * K - wv, 270 * K), ver, font=foot, fill=(*INK_FAINT, 255))
 
 
-def main() -> None:
+def main(models: int | None = None, version: str | None = None) -> None:
+    models = _models_count() if models is None else models
+    if version is None:
+        from open_spss import __version__
+        version = __version__
     img = _background()
     _dot_grid(img)
     _chart_art(img)
-    _brand(img)
+    _brand(img, models, version)
     img.resize((W, H), Image.LANCZOS).save(os.path.normpath(OUT))
-    print("splash.png written")
+    print(f"splash.png written (models={models}, version=v{version})")
 
 
 if __name__ == "__main__":
