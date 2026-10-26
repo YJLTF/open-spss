@@ -6,10 +6,13 @@ import io
 import numpy as np
 import pandas as pd
 
-rng = np.random.default_rng(2026)
+def _rng(seed: int) -> np.random.Generator:
+    """每个示例数据集独立固定种子:同一示例每次生成完全一致,不随调用顺序漂移。"""
+    return np.random.default_rng(seed)
 
 
 def _survey(n: int = 300) -> pd.DataFrame:
+    rng = _rng(2028)
     gender = rng.choice(["男", "女"], n, p=[0.48, 0.52])
     dept = rng.choice(["技术部", "市场部", "人事部", "财务部"], n, p=[0.4, 0.25, 0.2, 0.15])
     age = rng.normal(32, 7, n).clip(22, 55).round(0)
@@ -38,6 +41,7 @@ def _survey(n: int = 300) -> pd.DataFrame:
 
 
 def _scores(n: int = 120) -> pd.DataFrame:
+    rng = _rng(2029)
     cls = rng.choice(["1班", "2班", "3班"], n)
     gender = rng.choice(["男", "女"], n)
     base = rng.normal(70, 10, n) + np.where(cls == "1班", 6, np.where(cls == "3班", -5, 0))
@@ -55,6 +59,7 @@ def _scores(n: int = 120) -> pd.DataFrame:
 
 
 def _ecommerce(n: int = 200) -> pd.DataFrame:
+    rng = _rng(2030)
     seg = rng.choice(3, n, p=[0.4, 0.35, 0.25])
     recency = np.where(seg == 0, rng.gamma(2, 8, n), np.where(seg == 1, rng.gamma(3, 20, n), rng.gamma(4, 40, n))).round(0)
     freq = np.where(seg == 0, rng.poisson(14, n), np.where(seg == 1, rng.poisson(6, n), rng.poisson(2, n))).clip(1)
@@ -71,6 +76,7 @@ def _ecommerce(n: int = 200) -> pd.DataFrame:
 
 
 def _quality(n_sub: int = 25, size: int = 5) -> pd.DataFrame:
+    rng = _rng(2031)
     rows = []
     for b in range(1, n_sub + 1):
         shift = rng.normal(0, 0.08)
@@ -91,6 +97,7 @@ def _quality(n_sub: int = 25, size: int = 5) -> pd.DataFrame:
 
 
 def _timeseries(n: int = 48) -> pd.DataFrame:
+    rng = _rng(2032)
     t = np.arange(n)
     trend = 120 + t * 2.2
     season = 18 * np.sin(2 * np.pi * t / 12)
@@ -102,6 +109,7 @@ def _timeseries(n: int = 48) -> pd.DataFrame:
 
 
 def _region(n_city: int = 12) -> pd.DataFrame:
+    rng = _rng(2033)
     cities = ["江城市", "湖州市", "山阳市", "临海市", "云川市", "宁远市",
               "平川县", "望城县", "清河市", "温泉县", "长城市", "曲水县"]
     base = rng.normal(0, 1, n_city)
@@ -120,6 +128,7 @@ def _region(n_city: int = 12) -> pd.DataFrame:
 
 
 def _clinical(n: int = 150) -> pd.DataFrame:
+    rng = _rng(3002)
     treat = rng.choice(["新药", "安慰剂"], n, p=[0.5, 0.5])
     stage = rng.choice(["I期", "II期", "III期"], n, p=[0.4, 0.35, 0.25])
     age = rng.normal(58, 11, n).clip(30, 80).round(0)
@@ -144,6 +153,7 @@ def _clinical(n: int = 150) -> pd.DataFrame:
 
 def _panel(n: int = 40) -> pd.DataFrame:
     """重复测量干预研究:n 名被试 × 3 个时点(前/中/后测),供重复测量 ANOVA、混合模型、GEE 使用。"""
+    rng = _rng(2035)
     rows = []
     group = rng.choice(["干预组", "对照组"], n, p=[0.5, 0.5])
     base = rng.normal(50, 8, n).clip(20, 90)

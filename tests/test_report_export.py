@@ -73,3 +73,16 @@ def test_export_endpoints(tmp_path, monkeypatch):
     assert r.status_code == 200 and r.content[:2] == b"PK"
     r = c.post("/api/export/report/pdf", json=_payload().model_dump())
     assert r.status_code == 200 and r.content[:5] == b"%PDF-"
+
+
+def test_model_error_returns_friendly_400(tmp_path, monkeypatch):
+    """回归:业务错误(ModelError)必须是 400 + 友好 detail,而非 500(自 v1.0.0 起处理器一直有误)。"""
+    monkeypatch.setenv("OPENSPSS_DATA_DIR", str(tmp_path))
+    from fastapi.testclient import TestClient
+    from open_spss.app import app
+
+    c = TestClient(app)
+    ds = c.post("/api/datasets/sample/survey").json()
+    r = c.post("/api/run", json={"model": "mediation", "dataset": ds["id"], "slots": {}, "options": {}})
+    assert r.status_code == 400
+    assert "选择变量" in r.json()["detail"]

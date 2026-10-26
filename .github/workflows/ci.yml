@@ -41,3 +41,50 @@ jobs:
         with:
           name: wheel
           path: dist/*.whl
+
+  exe:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[exe]"
+      - run: pyinstaller openspss.spec --noconfirm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: dist/OpenSPSS.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [wheel, exe]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 提取发布说明
+        run: python scripts/release_notes.py "$GITHUB_REF_NAME" > body.md
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: exe
+          path: dist
+      - name: 创建 GitHub Release 并上传产物
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "OpenSPSS $GITHUB_REF_NAME" \
+            --notes-file body.md \
+            dist/OpenSPSS.exe dist/*.whl

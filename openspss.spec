@@ -17,6 +17,7 @@ subprocess.run(
 hiddenimports = (
     collect_submodules("uvicorn")
     + collect_submodules("statsmodels")
+    + collect_submodules("reportlab")
     + [
         "uvicorn.logging",
         "uvicorn.loops.auto",
@@ -36,12 +37,13 @@ a = Analysis(
     ["open_spss/launcher.py"],
     pathex=[],
     binaries=[],
-    datas=[("open_spss/web", "open_spss/web")],
+    datas=([("open_spss/web", "open_spss/web")]
+           + collect_data_files("reportlab")),
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "PIL", "PyQt5", "IPython"],
+    excludes=["tkinter", "matplotlib", "PyQt5", "IPython"],   # PIL 不排除:报告 PDF 内嵌图片需要
     noarchive=False,
 )
 pyz = PYZ(a.pure)

@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .results import ModelError
+
 # 变量类型:quant=定量 cat=定类 ordinal=定级/有序 any=任意
 QUANT = "quant"
 CAT = "cat"
@@ -84,7 +86,7 @@ class ModelRegistry:
 
     def register(self, spec: ModelSpec) -> ModelSpec:
         if spec.id in self._models:
-            raise ValueError(f"模型 id 重复: {spec.id}")
+            raise ModelError(f"模型 id 重复: {spec.id}")
         self._models[spec.id] = spec
         return spec
 
@@ -113,14 +115,14 @@ class ModelRegistry:
             if s.multiple:
                 cols = [c for c in (v or []) if isinstance(c, str) and c]
                 if s.required and not cols:
-                    raise ValueError(f"请为「{s.label}」选择变量")
+                    raise ModelError(f"请为「{s.label}」选择变量")
                 if s.max_count and len(cols) > s.max_count:
-                    raise ValueError(f"「{s.label}」最多选择 {s.max_count} 个变量")
+                    raise ModelError(f"「{s.label}」最多选择 {s.max_count} 个变量")
                 norm_slots[s.key] = cols
             else:
                 if not isinstance(v, str) or not v:
                     if s.required:
-                        raise ValueError(f"请为「{s.label}」选择变量")
+                        raise ModelError(f"请为「{s.label}」选择变量")
                     v = ""
                 norm_slots[s.key] = v
         norm_opts: dict[str, Any] = {}

@@ -41,7 +41,7 @@ if not os.path.isdir(WEB_DIR) and getattr(sys, "_MEIPASS", None):
 
 @app.exception_handler(ModelError)
 async def model_error_handler(_req, exc: ModelError):
-    return JSONResponse(status_code=400, detail=str(exc))
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 _START_TS = int(time.time())

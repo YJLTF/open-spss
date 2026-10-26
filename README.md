@@ -51,7 +51,7 @@ open-spss
 ### 方式二:安装分发包(wheel)
 
 ```bash
-pip install dist/open_spss-1.0.0-py3-none-any.whl
+pip install dist/open_spss-1.1.0-py3-none-any.whl
 open-spss
 ```
 
@@ -115,7 +115,7 @@ open-spss/
 │   ├── processing.py    # 数据处理操作
 │   ├── samples.py       # 内置示例数据集
 │   └── cli.py           # 命令行入口
-├── tests/               # pytest:全模型冒烟测试(100/100)与单元测试
+├── tests/               # pytest:全模型冒烟测试(108/108)与单元测试
 ├── scripts/             # start.sh 启动脚本、make_splash/make_logo 品牌资产生成
 ├── docs/                # 截图等文档资源
 └── openspss.spec        # PyInstaller 打包配置(构建前自动重生成过渡图)
@@ -142,7 +142,7 @@ register_model(ModelSpec(
 ## 测试
 
 ```bash
-pytest tests/ -q      # 冒烟测试(100 个模型逐个跑通)+ 标点/持久化/边界单元测试
+pytest tests/ -q      # 冒烟测试(108 个模型逐个跑通)+ 标点/持久化/边界单元测试
 ```
 
 ## 技术栈
