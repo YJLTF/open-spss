@@ -337,3 +337,39 @@ register_model(ModelSpec(
     slots=[Slot("var", "阶段/分类变量", types=(CAT, ORDINAL))],
     options=[],
 ))
+
+
+# ================================================================ 小提琴图
+def _run_plot_violin(ds: Dataset, sl: dict, op: dict) -> Result:
+    res = Result()
+    ycol, xcol = sl["y"], sl["x"]
+    y = as_numeric(ds, ycol)
+    if xcol:
+        frame = pd.DataFrame({"x": get_series(ds, xcol).astype(str), "y": y}).dropna()
+        groups = {k: g["y"].tolist() for k, g in frame.groupby("x", observed=True)}
+        if len(groups) > 20:
+            raise ModelError("分组数超过 20,小提琴图过于拥挤,请先合并水平或换变量")
+        res.add_table("分组描述统计", ["分组", "n", "均值", "标准差", "中位数"],
+                      [[k, int(len(v)), fnum(float(np.mean(v)), 3), fnum(float(np.std(v, ddof=1)), 3),
+                        fnum(float(np.median(v)), 3)] for k, v in groups.items()])
+    else:
+        groups = {"全部样本": y.dropna().tolist()}
+    res.add_chart("小提琴图", ch.violin_chart(f"「{ycol}」分布{'(按' + xcol + '分组)' if xcol else ''}",
+                 groups, y_name=ycol, show_points=bool(op.get("points"))))
+    res.add_interp(
+        f"小提琴图展示「{ycol}」的核密度分布形态"
+        + (f"(按「{xcol}」分组):外廓宽度对应密度,内部箱线为中位数与四分位距,散点为原始观测。" if xcol
+           else ":外廓宽度对应密度,内部箱线为中位数与四分位距,散点为原始观测。")
+        + "多峰或偏态形态提示该变量不适合直接使用均值类参数方法。")
+    return res
+
+
+register_model(ModelSpec(
+    id="plot_violin", name="小提琴图", category="统计绘图",
+    runner=_run_plot_violin,
+    desc="核密度分布 + 箱线 + 抖动散点三合一,直观比较各组分布形态、偏态与多峰。",
+    tags=["小提琴图", "分布", "KDE"], demo_note="panel",
+    slots=[Slot("y", "数值变量(定量)", types=(QUANT,)),
+           Slot("x", "分组变量(定类/定级,可选)", types=(CAT, ORDINAL), required=False)],
+    options=[Option("points", "显示原始散点", "switch", default=True)],
+))

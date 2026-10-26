@@ -142,6 +142,23 @@ def _clinical(n: int = 150) -> pd.DataFrame:
     })
 
 
+def _panel(n: int = 40) -> pd.DataFrame:
+    """重复测量干预研究:n 名被试 × 3 个时点(前/中/后测),供重复测量 ANOVA、混合模型、GEE 使用。"""
+    rows = []
+    group = rng.choice(["干预组", "对照组"], n, p=[0.5, 0.5])
+    base = rng.normal(50, 8, n).clip(20, 90)
+    for i in range(n):
+        effect = 8 if group[i] == "干预组" else 1.5
+        scores = [base[i] + rng.normal(0, 3),
+                  base[i] - effect * 0.5 + rng.normal(0, 3),
+                  base[i] - effect + rng.normal(0, 3)]
+        for t, s in zip(["前测", "中测", "后测"], scores):
+            rows.append({"被试编号": f"S{i + 1:03d}", "时点": t, "组别": group[i],
+                         "焦虑得分": round(float(np.clip(s, 10, 100)), 1)})
+    rng.shuffle(rows)
+    return pd.DataFrame(rows)
+
+
 SAMPLES = {
     "survey": ("员工满意度调查(300条)", _survey),
     "scores": ("学生成绩数据(120条)", _scores),
@@ -150,6 +167,7 @@ SAMPLES = {
     "timeseries": ("月度销量时间序列(48期)", _timeseries),
     "region": ("地区发展指标(12城市)", _region),
     "clinical": ("临床试验数据(150例)", _clinical),
+    "panel": ("重复测量干预研究(120条)", _panel),
 }
 
 

@@ -1182,3 +1182,99 @@ register_model(ModelSpec(
            Slot("covs", "协变量(定量,可选)", types=(QUANT,), multiple=True, max_count=8)],
     options=[ALPHA_OPT],
 ))
+
+
+# ================================================================ 线性混合模型
+def _run_mixed_lm(ds: Dataset, sl: dict, op: dict) -> Result:
+    """线性混合模型:固定效应 + 随机截距/随机斜率,输出 ICC 与方差成分。"""
+    import statsmodels.api as sm
+
+    res = Result()
+    yname, xs, gname = sl["y"], list(sl["xs"]), sl["group"]
+    if yname == gname or gname in xs or yname in xs:
+        raise ModelError("因变量、固定效应与分组变量之间不能重复选择")
+    if not xs:
+        raise ModelError("请至少选择 1 个固定效应变量")
+    X = _design(ds, xs)
+    frame = pd.concat([as_numeric(ds, yname), X, get_series(ds, gname).astype(str).rename("G")], axis=1).dropna()
+    Y = frame[yname].values
+    Xd = frame[X.columns].values
+    groups = frame["G"].values
+    if len(frame) < 10:
+        raise ModelError(f"有效样本不足 10 行(当前 {len(frame)})")
+    n_groups = len(set(groups))
+    if n_groups < 3:
+        raise ModelError(f"分组水平数过少({n_groups} 组),随机效应无法估计")
+
+    reml = op["reml"] == "reml"
+    if op["re_type"] == "ris":
+        # 随机斜率挂在第一个定量固定效应上
+        slope_col = next((c for c in X.columns if c in xs), None)
+        if slope_col is None:
+            raise ModelError("随机斜率需要一个定量固定效应;当前固定效应均为哑变量,请改用随机截距")
+        j = X.columns.get_loc(slope_col)
+        Z = Xd[:, [j]]
+        md = sm.MixedLM(Y, sm.add_constant(Xd, has_constant="add"), groups=groups, exog_re=Z)
+    else:
+        md = sm.MixedLM(Y, sm.add_constant(Xd, has_constant="add"), groups=groups)
+    with np.errstate(all="ignore"):
+        r = md.fit(reml=reml)
+
+    if not r.converged:
+        res.add_note("模型未完全收敛,固定效应估计仅供参考;可尝试减少随机效应或固定效应变量。")
+    fe_names = ["const"] + list(X.columns)
+    fe_vals = np.asarray(r.fe_params)
+    fe_bse = np.asarray(r.bse)[:len(fe_vals)]
+    ci = np.asarray(r.conf_int())[:len(fe_vals)]
+    from scipy import stats as sps
+    frows = []
+    for i, nm in enumerate(fe_names):
+        z = fe_vals[i] / fe_bse[i] if fe_bse[i] else np.nan
+        p = float(2 * sps.norm.sf(abs(z)))
+        frows.append(["常数项" if nm == "const" else nm, fnum(fe_vals[i], 4), fnum(fe_bse[i], 4),
+                      fnum(z, 3), fp(p), fnum(ci[i][0], 4), fnum(ci[i][1], 4)])
+    res.add_table("固定效应估计", ["项", "系数", "标准误", "z", "p", "95%CI 下限", "95%CI 上限"], frows,
+                  note="定类自变量已哑变量化(以首水平为参照)" if any(c not in xs for c in X.columns) else "")
+
+    scale = float(r.scale)
+    var_re = np.diag(np.asarray(r.cov_re))
+    rrows = [["残差方差", fnum(scale, 4)],
+             ["随机截距方差", fnum(var_re[0], 4)],
+             ["随机斜率方差", fnum(var_re[1], 4) if len(var_re) > 1 else "—"],
+             ["组数", n_groups]]
+    icc = var_re[0] / (var_re[0] + scale) if (var_re[0] + scale) else np.nan
+    res.add_table("随机效应与方差成分", ["成分", "估计值"], rrows,
+                  note="组内相关系数 ICC=随机截距方差/(随机截距方差+残差方差)=" + fnum(icc, 3))
+    fitrows = [["样本量", len(frame)], ["分组数", n_groups], ["对数似然", fnum(r.llf, 3)]]
+    if not reml:
+        fitrows += [["AIC", fnum(r.aic, 3)], ["BIC", fnum(r.bic, 3)]]
+    else:
+        fitrows.append(["估计方法", "REML(AIC/BIC 仅 ML 下可比)"])
+    res.add_table("模型拟合信息", ["指标", "值"], fitrows)
+    res.add_chart("固定效应系数图", ch.bar_chart("固定效应系数", [r[0] for r in frows],
+                 {"系数": [round(float(r[1]), 4) if r[1] else None for r in frows]}, y_name="系数"))
+    sig_fe = [r[0] for r in frows if r[4] and r[4].startswith("<0.001") or (r[4] and not r[4].startswith("<") and float(r[4].rstrip("*")) < op["alpha"]) if r[4]]
+    res.add_interp(
+        f"线性混合模型以「{gname}」为分组单元({n_groups} 组):固定效应{'、'.join(sig_fe[:3]) or '均不显著'}"
+        f"达到显著水平;随机截距方差={fnum(var_re[0], 3)},ICC={fnum(icc, 3)},"
+        + (f"组间差异明显(ICC>0.059),混合模型比普通回归更合适。" if icc > 0.059 else
+           "组间差异较小,普通回归与混合模型结论可能接近。"))
+    return res
+
+
+register_model(ModelSpec(
+    id="mixed_lm", name="线性混合模型", category="回归建模",
+    runner=_run_mixed_lm,
+    desc="含随机截距/随机斜率的分层模型:固定效应、方差成分与 ICC,适用于重复测量与嵌套数据。",
+    tags=["混合模型", "多层模型", "ICC"], demo_note="panel",
+    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
+           Slot("group", "分组变量(被试/聚类单元)", types=(CAT, ORDINAL, QUANT)),
+           Slot("xs", "固定效应(定量/定类,可多个)", types=(QUANT, CAT, ORDINAL), multiple=True, max_count=10)],
+    options=[Option("re_type", "随机效应结构", "select", default="ri",
+                    choices=[{"value": "ri", "label": "随机截距"},
+                             {"value": "ris", "label": "随机截距+随机斜率"}]),
+             Option("reml", "估计方法", "select", default="reml",
+                    choices=[{"value": "reml", "label": "REML(推荐)"},
+                             {"value": "ml", "label": "极大似然 ML"}]),
+             ALPHA_OPT],
+))

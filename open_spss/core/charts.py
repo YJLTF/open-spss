@@ -282,3 +282,75 @@ def funnel_chart(title: str, pairs: list[tuple[str, float]]) -> dict:
         "data": [{"name": k, "value": v} for k, v in pairs],
     }]
     return opt
+
+
+def violin_chart(title: str, groups: dict[str, list], y_name: str = "",
+                 show_points: bool = True, seed: int = 7) -> dict:
+    """小提琴图:各组的 KDE 密度多边形 + 内嵌迷你箱线 + 抖动散点。"""
+    from scipy import stats as sps
+
+    names = list(groups.keys())
+    arrs = []
+    for v in groups.values():
+        a = np.asarray([x for x in v if x is not None and not (isinstance(x, float) and math.isnan(x))], dtype=float)
+        arrs.append(a)
+    all_vals = np.concatenate([a for a in arrs if a.size]) if any(a.size for a in arrs) else np.array([0.0, 1.0])
+    lo, hi = float(all_vals.min()), float(all_vals.max())
+    pad = (hi - lo) * 0.08 or 1.0
+    grid = np.linspace(lo - pad, hi + pad, 80)
+    max_d = 1e-9
+    dens = []
+    for a in arrs:
+        if a.size >= 3 and float(np.std(a)) > 1e-9:
+            try:
+                d = sps.gaussian_kde(a)(grid)
+            except Exception:  # noqa: BLE001
+                d = np.zeros_like(grid)
+        else:
+            d = np.zeros_like(grid)
+        dens.append(d)
+        max_d = max(max_d, float(d.max()))
+    half = 0.38          # 小提琴最大半宽(类别间距单位)
+    opt = base(title, tooltip="axis")
+    opt["xAxis"] = {**_cat_axis(), "data": names}
+    ya = {**AXIS_STYLE, "type": "value", "name": y_name, "scale": True}
+    opt["yAxis"] = ya
+    opt["series"] = []
+    rng = np.random.default_rng(seed)
+    for i, (nm, a) in enumerate(zip(names, arrs)):
+        if dens[i].max() > 0 and a.size >= 3:
+            w = dens[i] / max_d * half
+            pts = [[float(i - w[j]), round(float(grid[j]), 4)] for j in range(len(grid))]
+            pts += [[float(i + w[j]), round(float(grid[len(grid) - 1 - j]), 4)]
+                    for j in range(len(grid) - 1, -1, -1)]
+            opt["series"].append({
+                "name": nm, "type": "line", "data": pts, "smooth": 0.35, "showSymbol": False,
+                "lineStyle": {"width": 1.2, "color": PALETTE[i % len(PALETTE)]},
+                "areaStyle": {"opacity": 0.28, "color": PALETTE[i % len(PALETTE)]},
+                "tooltip": {"show": False},
+                "silent": True,
+            })
+        if a.size >= 2:
+            q1, med, q3 = np.percentile(a, [25, 50, 75])
+            iqr = q3 - q1
+            lo_w = float(a[a >= q1 - 1.5 * iqr].min())
+            hi_w = float(a[a <= q3 + 1.5 * iqr].max())
+            bw = half * 0.22
+            opt["series"].append({
+                "name": f"{nm}·箱线", "type": "boxplot",
+                "data": [[float(i), round(lo_w, 4), round(q1, 4), round(med, 4), round(q3, 4), round(hi_w, 4)]],
+                "itemStyle": {"color": "transparent", "borderColor": "#334155", "borderWidth": 1.4},
+                "tooltip": {"show": False},
+                "silent": True,
+                "boxWidth": [bw * 100, bw * 100],
+            })
+    if show_points:
+        jitter = []
+        for i, a in enumerate(arrs):
+            if a.size and a.size <= 400:
+                jitter.append({"name": names[i], "type": "scatter",
+                               "data": [[round(float(i + j), 4), round(float(v), 4)]
+                                        for j, v in zip(rng.uniform(-0.06, 0.06, a.size), a)],
+                               "symbolSize": 3.5, "itemStyle": {"opacity": 0.35, "color": "#475569"}})
+        opt["series"] += jitter
+    return opt

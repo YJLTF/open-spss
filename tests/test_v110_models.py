@@ -122,3 +122,67 @@ def test_moderation_no_interaction():
     p3_txt = res.tables[0].rows[2][7]
     p3 = 0.0 if p3_txt.startswith("<") else float(p3_txt.rstrip("*"))
     assert p3 >= 0.05
+
+
+# ---------------------------------------------------------------- 重复测量 ANOVA
+def test_anova_rm_equals_paired_t_squared():
+    """2 水平重复测量:F = 配对 t 检验 t 的平方(经典恒等关系)。"""
+    n = 25
+    base = RNG.normal(size=n)
+    y1, y2 = base + RNG.normal(scale=1.0, size=n), base + 0.9 + RNG.normal(scale=1.0, size=n)
+    rows = [(f"S{i}", "前测", y1[i]) for i in range(n)] + [(f"S{i}", "后测", y2[i]) for i in range(n)]
+    ds = _ds(pd.DataFrame(rows, columns=["sid", "t", "y"]))
+    res = REGISTRY.get("anova_rm").runner(ds, {"y": "y", "subject": "sid", "time": "t"},
+                                          {"alpha": 0.05})
+    t = sps.ttest_rel(y2, y1)
+    f_rep = float(res.tables[1].rows[0][4])
+    assert abs(f_rep - t.statistic ** 2) < 5.1e-4   # 表格展示保留 3 位小数
+    p_rep = float(res.tables[1].rows[0][5].rstrip("*").lstrip("<"))
+    assert abs(p_rep - t.pvalue) < 5.1e-4 or t.pvalue < 0.001
+    assert res.tables[2].rows[0][3] == "1"            # 2 水平球形度恒成立,GG ε=1
+
+
+# ---------------------------------------------------------------- 混合模型
+def test_mixed_lm_recovers_icc():
+    n_sub, n_obs = 40, 4
+    g = np.repeat(np.arange(n_sub), n_obs)
+    x = RNG.normal(size=len(g))
+    u = RNG.normal(scale=0.9, size=n_sub)
+    y = 1.2 + 0.8 * x + u[g] + RNG.normal(scale=0.4, size=len(g))
+    df = pd.DataFrame({"y": y, "x": x, "g": [f"G{i}" for i in g]})
+    ds = _ds(df)
+    res = REGISTRY.get("mixed_lm").runner(ds, {"y": "y", "group": "g", "xs": ["x"]},
+                                          {"re_type": "ri", "reml": "reml", "alpha": 0.05})
+    icc = float(res.tables[1].rows[-1]["估计值"] if False else res.tables[1].note.split("=")[-1])
+    assert 0.5 < icc < 1.0                            # 真实 ICC≈0.9²/(0.9²+0.4²)≈0.83
+    coef = float(res.tables[0].rows[1][1])            # x 的固定效应
+    assert abs(coef - 0.8) < 0.1
+
+
+# ---------------------------------------------------------------- GEE
+def test_gee_gaussian_close_to_truth():
+    n_sub, n_obs = 50, 4
+    g = np.repeat(np.arange(n_sub), n_obs)
+    x = RNG.normal(size=len(g))
+    u = RNG.normal(scale=0.7, size=n_sub)
+    y = 0.5 + 1.1 * x + u[g] + RNG.normal(scale=0.6, size=len(g))
+    df = pd.DataFrame({"y": y, "x": x, "g": [f"G{i}" for i in g]})
+    ds = _ds(df)
+    res = REGISTRY.get("gee").runner(ds, {"y": "y", "group": "g", "xs": ["x"]},
+                                     {"family": "gaussian", "corstr": "exchangeable", "alpha": 0.05})
+    rows = res.tables[0].rows
+    slope = next(r for r in rows if r[0] == "x")
+    assert abs(float(slope[1]) - 1.1) < 0.12
+    assert slope[5] == "显著"
+
+
+# ---------------------------------------------------------------- 小提琴图
+def test_violin_chart_structure():
+    from open_spss.core.charts import violin_chart
+    groups = {"A": RNG.normal(0, 1, 60).tolist(), "B": RNG.normal(2, 1, 60).tolist()}
+    opt = violin_chart("t", groups, show_points=True)
+    kinds = [s["type"] for s in opt["series"]]
+    assert "line" in kinds and "boxplot" in kinds and "scatter" in kinds
+    violin = next(s for s in opt["series"] if s["type"] == "line")
+    xs = [p[0] for p in violin["data"]]
+    assert min(xs) < 0 < max(xs) < 2                  # 多边形围绕类别位置对称展开

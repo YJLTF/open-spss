@@ -859,3 +859,102 @@ register_model(ModelSpec(
         Option("ratios", "期望比例(空=等概率)", "text", default="", tip="与类别数一致,如 0.5,0.3,0.2"),
     ],
 ))
+
+
+# ================================================================ 重复测量方差分析
+def _run_anova_rm(ds: Dataset, sl: dict, op: dict) -> Result:
+    """单因素重复测量方差分析:单变量 F 检验 + Mauchly 球形度检验与 Greenhouse-Geisser 校正。"""
+    res = Result()
+    yname, sname, tname = sl["y"], sl["subject"], sl["time"]
+    data = pd.DataFrame({
+        "y": as_numeric(ds, yname),
+        "s": get_series(ds, sname).astype(str),
+        "t": get_series(ds, tname).astype(str),
+    }).dropna()
+    # 每个被试在同一水平最多一条记录:重复取均值并提示
+    dup = int(data.duplicated(["s", "t"]).sum())
+    wide = data.pivot_table(index="s", columns="t", values="y", aggfunc="mean")
+    order = [t for t in dict.fromkeys(data["t"]) if t in wide.columns]   # 保持数据中的水平先后
+    wide = wide[order].dropna()                      # 缺失任一水平的被试整行剔除
+    n, k = wide.shape
+    if k < 2:
+        raise ModelError("组内因素至少需要 2 个水平")
+    if n < 5:
+        raise ModelError(f"完整被试不足 5 人(当前 {n}),重复测量分析不可靠")
+    if dup:
+        res.add_note(f"检测到 {dup} 条同一被试同一水平的重复记录,已按均值聚合。")
+
+    Y = wide.values
+    grand = Y.mean()
+    lv_means = Y.mean(axis=0)
+    sub_means = Y.mean(axis=1)
+    ss_time = n * float(((lv_means - grand) ** 2).sum())
+    ss_subj = k * float(((sub_means - grand) ** 2).sum())
+    ss_total = float(((Y - grand) ** 2).sum())
+    ss_err = ss_total - ss_time - ss_subj
+    df_time, df_subj, df_err = k - 1, n - 1, (k - 1) * (n - 1)
+    ms_time, ms_err = ss_time / df_time, ss_err / df_err
+    f_val = ms_time / ms_err if ms_err > 0 else np.nan
+    p_raw = float(sps.f.sf(f_val, df_time, df_err))
+    p_eta2 = ss_time / (ss_time + ss_err) if (ss_time + ss_err) else np.nan
+
+    drows = [[t, int(len(wide[t])), fnum(lv_means[j], 3), fnum(float(wide[t].std(ddof=1)), 3)]
+             for j, t in enumerate(wide.columns)]
+    res.add_table("描述统计(完整被试)", ["水平", "n", "均值", "标准差"], drows)
+    res.add_table("重复测量方差分析(未校正)",
+                  ["变异源", "SS", "df", "MS", "F", "p", "偏η²"],
+                  [["组内(时间/条件)", fnum(ss_time, 3), df_time, fnum(ms_time, 3), fnum(f_val, 3), fp(p_raw), fnum(p_eta2, 3)],
+                   ["组内误差", fnum(ss_err, 3), df_err, fnum(ms_err, 3), "", "", ""],
+                   ["组间(被试间)", fnum(ss_subj, 3), df_subj, fnum(ss_subj / df_subj, 3), "", "", ""]],
+                  note="剔除任一水平缺失的被试(完整案例分析)")
+
+    # 球形度:正交对比协方差矩阵的特征值
+    p_lv = k - 1
+    basis = np.column_stack([np.eye(k)[:, j] - np.eye(k)[:, -1] for j in range(p_lv)])
+    Q, _ = np.linalg.qr(basis)                        # 正交化对比矩阵(k × (k-1))
+    Z = (Y - Y.mean(axis=0)) @ Q
+    S = np.atleast_2d(np.cov(Z, rowvar=False, ddof=1))   # k=2 时 cov 返回标量
+    eig = np.linalg.eigvalsh(S)
+    eig = np.clip(eig.real, 1e-12, None)
+    tr, tr2 = float(eig.sum()), float((eig ** 2).sum())
+    eps_gg = tr * tr / (p_lv * tr2)
+    eps_lb = 1.0 / p_lv
+    W = float(np.prod(eig) / (tr / p_lv) ** p_lv)
+    chi2_m = -(n - 1 - (2 * p_lv ** 2 + p_lv + 2) / (6 * p_lv)) * np.log(W)
+    df_m = p_lv * (p_lv + 1) / 2 - 1
+    p_mauchly = float(sps.chi2.sf(chi2_m, df_m)) if k > 2 else np.nan
+    if k == 2:
+        eps_gg = 1.0
+        note = "2 个水平时球形度恒成立,无需校正"
+    else:
+        note = "Greenhouse-Geisser 校正;ε<0.75 时建议以校正结果为准"
+    p_gg = float(sps.f.sf(f_val, eps_gg * df_time, eps_gg * df_err))
+    res.add_table("球形度检验与校正结果",
+                  ["Mauchly W", "χ²", "p", "GG ε", "下界 ε", "校正 df(组内,误差)", "校正后 p"],
+                  [[fnum(W, 4), fnum(chi2_m, 3), fp(p_mauchly), fnum(eps_gg, 3), fnum(eps_lb, 3),
+                    f"{fnum(eps_gg * df_time, 2)},{fnum(eps_gg * df_err, 2)}", fp(p_gg)]],
+                  note=note)
+    res.add_chart("各水平均值轮廓图", ch.line_chart("均值轮廓图", [str(c) for c in wide.columns],
+                 {"均值": [round(float(v), 4) for v in lv_means]}, x_name=tname, y_name=f"「{yname}」均值"))
+    sig = (p_gg if k > 2 and eps_gg < 0.75 else p_raw) < op["alpha"]
+    res.add_interp(
+        f"{n} 名被试在 {k} 个水平( {('、'.join(map(str, wide.columns)))} )上的重复测量方差分析:"
+        f"F({fnum(df_time, 0)},{fnum(df_err, 0)})=**{fnum(f_val, 3)}**,未校正 p={fp(p_raw)},偏η²={fnum(p_eta2, 3)}。"
+        + (f"Mauchly 球形度检验 p={fp(p_mauchly)},"
+           f"{'满足球形度假设,以未校正结果为准' if (np.isnan(p_mauchly) or p_mauchly >= 0.05) else '违反球形度假设,建议采用 GG 校正结果'}"
+           f"(GG 校正后 p={fp(p_gg)})。" if k > 2 else "")
+        + f"结论:各水平均值差异{'显著' if sig else '不显著'},"
+        f"{'时间/条件因素对指标存在显著影响' if sig else '尚无证据表明各水平间存在差异'}。")
+    return res
+
+
+register_model(ModelSpec(
+    id="anova_rm", name="重复测量方差分析", category="差异检验",
+    runner=_run_anova_rm,
+    desc="同一批被试在多个时间点/条件下的均值比较:单变量 F 检验、Mauchly 球形度检验与 GG 校正。",
+    tags=["重复测量", "球形度", "组内设计"], demo_note="panel",
+    slots=[Slot("y", "观测指标(定量)", types=(QUANT,)),
+           Slot("subject", "被试编号(同一被试编号相同)", types=(CAT, ORDINAL, QUANT)),
+           Slot("time", "组内因素(时间/条件)", types=(CAT, ORDINAL))],
+    options=[ALPHA_OPT],
+))

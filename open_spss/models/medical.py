@@ -9,6 +9,10 @@ from ..core.datasets import Dataset, as_numeric, get_series
 from ..core.registry import CAT, ORDINAL, QUANT, ModelSpec, Option, Slot, register_model
 from ..core.results import ModelError, Result, fnum, fp
 
+ALPHA_OPT = Option("alpha", "显著性水平 α", "select", default=0.05,
+                   choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.05, "label": "0.05"},
+                            {"value": 0.01, "label": "0.01"}])
+
 
 def _concordance_index(risk: "np.ndarray", time: "np.ndarray", event: "np.ndarray") -> float:
     """Harrell 一致性指数:风险高者应更早发生事件"""
@@ -402,4 +406,105 @@ register_model(ModelSpec(
         Option("gold_pos", "金标准阳性水平(空=自动)", "text", default=""),
         Option("test_pos", "诊断阳性水平(空=自动)", "text", default=""),
     ],
+))
+
+
+# ================================================================ 广义估计方程 GEE
+def _run_gee(ds: Dataset, sl: dict, op: dict) -> Result:
+    """广义估计方程:聚类/纵向数据的稳健推断(工作相关结构 + 三明治标准误)。"""
+    import statsmodels.api as sm
+    from scipy import stats as sps
+
+    from .regression import _design
+
+    res = Result()
+    yname, xs, gname = sl["y"], list(sl["xs"]), sl["group"]
+    if not xs:
+        raise ModelError("请至少选择 1 个自变量")
+    if yname == gname or gname in xs or yname in xs:
+        raise ModelError("因变量、自变量与分组变量之间不能重复选择")
+    X = _design(ds, xs)
+    y_raw = get_series(ds, yname)
+    fam_name = op["family"]
+    if fam_name == "binomial":
+        levels = sorted(set(y_raw.dropna().astype(str)))
+        if len(levels) != 2:
+            raise ModelError(f"二项族要求因变量恰好 2 个水平(当前 {len(levels)} 个),或改用高斯/泊松族")
+        y = y_raw.astype(str).map({levels[0]: 0, levels[1]: 1})
+        res.add_note(f"二项族编码:「{levels[0]}」→ 0,「{levels[1]}」→ 1。")
+    else:
+        y = pd.to_numeric(y_raw, errors="coerce")
+        if fam_name == "poisson" and (y.dropna() < 0).any():
+            raise ModelError("泊松族要求因变量非负(计数数据)")
+    frame = pd.concat([y.rename("Y"), X, get_series(ds, gname).astype(str).rename("G")], axis=1).dropna()
+    if len(frame) < 10:
+        raise ModelError(f"有效样本不足 10 行(当前 {len(frame)})")
+    n_groups = frame["G"].nunique()
+    if n_groups < 3:
+        raise ModelError(f"分组水平数过少({n_groups} 组),作业相关无法估计")
+
+    fam = {"gaussian": sm.families.Gaussian, "binomial": sm.families.Binomial,
+           "poisson": sm.families.Poisson}[fam_name]()
+    cov = {"exchangeable": sm.cov_struct.Exchangeable,
+           "ar1": sm.cov_struct.Autoregressive,
+           "independence": sm.cov_struct.Independence,
+           "unstructured": sm.cov_struct.Unstructured}[op["corstr"]]()
+    if op["corstr"] == "ar1":
+        res.add_note("AR(1) 假定各组内记录已按时间先后排序;若未排序请先在数据页排序。")
+    model = sm.GEE(frame["Y"], sm.add_constant(frame[X.columns], has_constant="add"),
+                   groups=frame["G"], family=fam, cov_struct=cov)
+    with np.errstate(all="ignore"):
+        r = model.fit()
+    if not getattr(r, "converged", True):
+        res.add_note("GEE 未完全收敛,结果仅供参考;可尝试更换工作相关结构。")
+    rows = []
+    for nm in r.params.index:
+        z = float(r.params[nm]) / float(r.bse[nm]) if r.bse[nm] else np.nan
+        p = float(2 * sps.norm.sf(abs(z)))
+        rows.append(["常数项" if nm == "const" else nm, fnum(r.params[nm], 4), fnum(r.bse[nm], 4),
+                     fnum(z, 3), fp(p), "显著" if p < op["alpha"] else "不显著"])
+    fam_cn = {"gaussian": "高斯(正态)", "binomial": "二项(Logistic)", "poisson": "泊松(计数)"}[fam_name]
+    cor_cn = {"exchangeable": "可交换", "ar1": "AR(1)", "independence": "独立",
+              "unstructured": "非结构化"}[op["corstr"]]
+    res.add_table(f"GEE 系数估计({fam_cn} · {cor_cn})",
+                  ["项", "系数", "稳健标准误", "z", "p", "显著性"], rows,
+                  note="标准误为三明治稳健估计,对组内相关与异方差稳健")
+    dep = cov.dep_params
+    if np.isscalar(dep):
+        res.add_table("作业相关参数", ["参数", "估计值"], [["相关参数 ρ/α", fnum(float(dep), 4)]])
+    try:
+        qic, qicu = r.qic()
+        res.add_table("拟合准则", ["QIC", "QICu"], [[fnum(float(qic), 3), fnum(float(qicu), 3)]],
+                      note="QIC 越小越好,可用于比较不同工作相关结构")
+    except Exception:  # noqa: BLE001  部分族/结构下 QIC 不可用
+        pass
+    sig_names = [r[0] for r in rows if r[0] != "常数项" and r[5] == "显著"]
+    res.add_interp(
+        f"GEE 以「{gname}」为聚类单元({n_groups} 组),采用{fam_cn}与{cor_cn}作业相关结构。"
+        + (f"自变量中{'、'.join(sig_names[:3])}的效应达到显著水平。" if sig_names
+           else "所有自变量的效应均未达到显著水平。")
+        + (f"组内相关参数 ρ/α={fnum(float(dep), 3)},组内观测存在"
+           f"{'明显' if isinstance(dep, float) and dep > 0.3 else '一定'}相关,应使用稳健标准误。"
+           if np.isscalar(dep) else ""))
+    return res
+
+
+register_model(ModelSpec(
+    id="gee", name="广义估计方程(GEE)", category="医学统计",
+    runner=_run_gee,
+    desc="纵向/聚类数据的边际模型:高斯/二项/泊松族,可交换、AR(1) 等作业相关结构,三明治稳健推断。",
+    tags=["GEE", "纵向数据", "稳健标准误"], demo_note="panel",
+    slots=[Slot("y", "因变量", types=(QUANT, ORDINAL)),
+           Slot("group", "分组/聚类变量(如被试编号)", types=(CAT, ORDINAL, QUANT)),
+           Slot("xs", "自变量(定量/定类,可多个)", types=(QUANT, CAT, ORDINAL), multiple=True, max_count=10)],
+    options=[Option("family", "分布族", "select", default="gaussian",
+                    choices=[{"value": "gaussian", "label": "高斯(连续)"},
+                             {"value": "binomial", "label": "二项(二分类)"},
+                             {"value": "poisson", "label": "泊松(计数)"}]),
+             Option("corstr", "工作相关结构", "select", default="exchangeable",
+                    choices=[{"value": "exchangeable", "label": "可交换(推荐)"},
+                             {"value": "ar1", "label": "AR(1)(组内按时间排序)"},
+                             {"value": "independence", "label": "独立"},
+                             {"value": "unstructured", "label": "非结构化"}]),
+             ALPHA_OPT],
 ))
