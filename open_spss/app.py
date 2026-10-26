@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import __version__
+from .codegen import code_for
 from .core.datasets import STORE, Dataset, _safe
 from .core.registry import REGISTRY
 from .core.results import ModelError, Result
@@ -185,6 +186,9 @@ def run_model(payload: RunPayload):
         raise HTTPException(500, f"计算出错: {type(e).__name__}: {e}")
     out = result.to_dict()
     out["model"] = {"id": spec.id, "name": spec.name}
+    code = code_for(spec.id, ds, slots, opts)
+    if code:
+        out["code"] = code
     return out
 
 

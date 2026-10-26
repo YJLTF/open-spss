@@ -14,6 +14,7 @@ function renderResult() {
         <button data-tab="charts">图表 ${nCharts}</button>
       </div>
       <span style="flex:1"></span>
+      ${r.code ? `<button class="btn ghost" id="btnCode">⌨ 查看代码</button>` : ""}
       <button class="btn" id="btnExport">⬇ 导出 Excel</button>
     </div>
     <div class="result-flow" id="resultFlow">${resultFlowHtml(r, "all")}</div>`;
@@ -25,7 +26,28 @@ function renderResult() {
     bindChartLazy();
   }));
   $("#btnExport").addEventListener("click", exportXlsx);
+  $("#btnCode")?.addEventListener("click", () => showCodeModal(S.result.code, S.result?.model?.name));
   bindChartLazy();
+}
+
+/* 可复现代码弹窗:展示当前分析的等效 Python 代码 */
+function showCodeModal(code, modelName = "分析") {
+  openModal(`
+    <div class="modal-head"><h3>可复现代码 · ${esc(modelName)}</h3><button class="modal-close">×</button></div>
+    <div class="modal-body code-modal-body">
+      <p class="code-tip">与本次界面分析的统计过程等效,可直接在 Python ≥3.10 环境运行(列名请与你的数据保持一致)。</p>
+      <pre class="code-view">${esc(code)}</pre>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="codeCopy">复制代码</button>
+    </div>`, { wide: true });
+  $("#codeCopy").addEventListener("click", async (e) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      e.target.textContent = "已复制 ✓";
+      setTimeout(() => { e.target.textContent = "复制代码"; }, 1600);
+    } catch { toast("复制失败,请手动选择文本", "err"); }
+  });
 }
 
 function resultFlowHtml(r, tab, prefix = "") {

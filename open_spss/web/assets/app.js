@@ -649,6 +649,7 @@ function exportReportHtml() {
       ${e.result.interpretation.length ? `<div class="rp-interp">${e.result.interpretation.map(p => `<p>${md(p)}</p>`).join("")}</div>` : ""}
       ${e.result.notes?.length ? `<div class="rp-interp">${e.result.notes.map(p => `<p>${md(p)}</p>`).join("")}</div>` : ""}
       ${tables}${chartImgs}
+      ${e.result.code ? `<h4>可复现代码</h4><pre class="rp-code">${esc(e.result.code)}</pre>` : ""}
     </section>`;
   }).join("");
   const doc = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
@@ -669,6 +670,7 @@ body{font-family:"Microsoft YaHei",system-ui,sans-serif;color:#1e293b;max-width:
 .rp-table th,.rp-table td{border:1px solid #e2e8f0;padding:5px 9px}
 .rp-table tr:nth-child(even) td{background:#fafbfe}
 .rp-chart{max-width:100%;border:1px solid #eef2f7;border-radius:8px;margin:4px 0 12px}
+.rp-code{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;font-family:Consolas,monospace;font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre}
 .rp-note{color:#64748b;font-size:12px}
 footer{border-top:1px solid #e2e8f0;margin-top:40px;padding-top:12px;color:#94a3b8;font-size:12px;text-align:center}
 @media print{.rp-item{page-break-inside:avoid}body{padding:0}}
