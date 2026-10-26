@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .results import ModelError
+from .results import ModelError, zh_punct
 
 # 变量类型:quant=定量 cat=定类 ordinal=定级/有序 any=任意
 QUANT = "quant"
@@ -87,6 +87,19 @@ class ModelRegistry:
     def register(self, spec: ModelSpec) -> ModelSpec:
         if spec.id in self._models:
             raise ModelError(f"模型 id 重复: {spec.id}")
+        # UI 文案统一中文标点:描述/槽位/选项/标签在注册口归一,
+        # 目录展示与校验错误提示(引用 slot.label)自动一致
+        spec.name = zh_punct(spec.name)
+        spec.desc = zh_punct(spec.desc)
+        spec.tags = [zh_punct(t) for t in spec.tags]
+        for s in spec.slots:
+            s.label = zh_punct(s.label)
+            s.tip = zh_punct(s.tip)
+        for o in spec.options:
+            o.label = zh_punct(o.label)
+            o.tip = zh_punct(o.tip)
+            if o.choices:
+                o.choices = [{**c, "label": zh_punct(c["label"])} for c in o.choices]
         self._models[spec.id] = spec
         return spec
 

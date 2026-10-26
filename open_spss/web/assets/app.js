@@ -14,7 +14,7 @@ async function selectDataset(id, { silent = false } = {}) {
   localStorage.setItem("ospss.ds", id);
   S.dataPage = 1;
   renderDatasetBox();
-  if (!silent) toast(`已切换数据集:${S.ds.name}`, "ok");
+  if (!silent) toast(`已切换数据集：${S.ds.name}`, "ok");
   const m = location.hash.match(/^#\/m\/([\w-]+)/);
   if (m) route();
   else location.hash = `#/data/${id}`;
@@ -136,8 +136,8 @@ function viewWelcome() {
   <div class="welcome">
     <div class="hero">
       <div>
-        <h2>把数据放进来,<br><span class="grad">剩下的交给统计。</span></h2>
-        <p>OpenSPSS 内置 <b>${S.catalog?.total ?? "…"} 个分析模型</b>:从描述统计、假设检验到回归建模、机器学习与综合评价。选择模型、拖入变量、一键得到结果与智能解读。</p>
+        <h2>把数据放进来，<br><span class="grad">剩下的交给统计。</span></h2>
+        <p>OpenSPSS 内置 <b>${S.catalog?.total ?? "…"} 个分析模型</b>：从描述统计、假设检验到回归建模、机器学习与综合评价。选择模型、拖入变量、一键得到结果与智能解读。</p>
       </div>
       <div class="hero-badge">
         <div class="hb-item"><div class="hb-num">${S.catalog ? S.catalog.total : "—"}</div><div class="hb-lab">分析模型</div></div>
@@ -149,12 +149,12 @@ function viewWelcome() {
     <div class="sec-title">上传数据</div>
     <div class="upload-card" id="dropzone" tabindex="0" role="button" aria-label="上传数据文件">
       <div class="uc-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
-      <h4>拖拽文件到这里,或点击选择</h4>
-      <p>支持 csv / xlsx / xls / sav(SPSS) / tsv / json / parquet,60MB 以内</p>
+      <h4>拖拽文件到这里，或点击选择</h4>
+      <p>支持 csv / xlsx / xls / sav（SPSS）/ tsv / json / parquet，60MB 以内</p>
       <input type="file" id="fileInput" hidden accept=".csv,.xlsx,.xls,.sav,.tsv,.json,.parquet">
     </div>
 
-    <div class="sec-title">示例数据,即点即用</div>
+    <div class="sec-title">示例数据，即点即用</div>
     <div class="sample-grid">${samples}</div>
 
     <div class="sec-title">我的数据集</div>
@@ -164,7 +164,7 @@ function viewWelcome() {
           <div><div class="dsr-name">${esc(d.name)} ${d.source === "sample" ? `<span class="badge-sample">示例</span>` : ""}</div>
           <div class="dsr-meta">${d.rows} 行 × ${d.cols} 列</div></div>
           <svg class="arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </div>`).join("") || `<p style="color:var(--ink-3);font-size:13px">暂无,载入示例或上传文件后出现在这里。</p>`
+        </div>`).join("") || `<p style="color:var(--ink-3);font-size:13px">暂无，载入示例或上传文件后出现在这里。</p>`
     }</div>
   </div>`;
 
@@ -194,7 +194,7 @@ async function uploadFile(file) {
     const ds = await api("/api/upload", { method: "POST", body: fd });
     await loadDatasets();
     await selectDataset(ds.id, { silent: true });
-    toast(`已载入「${ds.name}」:${ds.rows} 行 × ${ds.cols} 列`, "ok");
+    toast(`已载入「${ds.name}」：${ds.rows} 行 × ${ds.cols} 列`, "ok");
   } catch (err) { toast(err.message, "err"); }
 }
 
@@ -214,7 +214,7 @@ function renderDataView() {
     <button class="btn" id="btnUndo" ${ds.canUndo ? "" : "disabled"} title="撤销 (Ctrl+Z)">⤺ 撤销</button>
     <button class="btn" id="btnRedo" ${ds.canRedo ? "" : "disabled"} title="重做 (Ctrl+Y)">⤻ 重做</button>
     <button class="btn" id="btnMerge" title="与另一数据集纵向追加 / 横向关联">⧉ 合并</button>
-    <button class="btn ${ds.weightCol ? "primary" : ""}" id="btnWeight" title="加权个案:按某列取值加权,描述/频数/卡方优先支持">⚖ 加权${ds.weightCol ? ":" + esc(ds.weightCol) : ""}</button>
+    <button class="btn ${ds.weightCol ? "primary" : ""}" id="btnWeight" title="加权个案：按某列取值加权，描述/频数/卡方优先支持">⚖ 加权${ds.weightCol ? "：" + esc(ds.weightCol) : ""}</button>
     <button class="btn" id="btnProc">⚙ 数据处理</button>
     <button class="btn primary" id="btnAnalyze">开始分析 →</button>`);
   $("#btnAnalyze").addEventListener("click", () => { location.hash = "#/"; });
@@ -228,7 +228,7 @@ function renderDataView() {
   const colMeta = Object.fromEntries(ds.columns.map(c => [c.name, c]));
   const head = p.columns.map(c => {
     const meta = colMeta[c];
-    const lab = meta.label ? ` title="变量标签:${esc(meta.label)}"` : "";
+    const lab = meta.label ? ` title="变量标签：${esc(meta.label)}"` : "";
     return `<th${lab} data-col="${esc(c)}" title="点击修改变量类型">${esc(c)}<br>${vtBadge(meta.dtype)}</th>`;
   }).join("");
   const body = p.rows.map((row, i) => {
@@ -236,7 +236,7 @@ function renderDataView() {
     return `<tr><td class="rowidx">${ridx + 1}<span class="del-row" data-row="${ridx}" title="删除此行">×</span></td>${row.map((cell, ci) => {
       const isNum = typeof cell === "number";
       const meta = colMeta[p.columns[ci]];
-      const vl = meta && meta.vals && meta.vals[String(cell)] ? ` title="值标签:${esc(meta.vals[String(cell)])}"` : "";
+      const vl = meta && meta.vals && meta.vals[String(cell)] ? ` title="值标签：${esc(meta.vals[String(cell)])}"` : "";
       return `<td${vl} data-row="${ridx}" data-col="${esc(p.columns[ci])}" class="${isNum ? "num" : ""}${cell === null ? " empty" : ""}">${cell === null ? "—" : esc(cell)}</td>`;
     }).join("")}</tr>`;
   }).join("");
@@ -266,7 +266,7 @@ function renderDataView() {
       </div>
     </div>
     <div class="card col-panel">
-      <h4>变量设置 <span style="font-weight:400;font-size:12px;color:var(--ink-3)">点击变量:切换类型 · 编辑变量/值标签 · 删除列</span></h4>
+      <h4>变量设置 <span style="font-weight:400;font-size:12px;color:var(--ink-3)">点击变量：切换类型 · 编辑变量/值标签 · 删除列</span></h4>
       <div class="col-chips">${chips}</div>
     </div>
   </div>`;
@@ -282,7 +282,7 @@ function renderDataView() {
   $("#btnAddRow").addEventListener("click", () => editSubmit({ action: "add_row" }));
   $$(".del-row").forEach(x => x.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (confirm(`删除第 ${+x.dataset.row + 1} 行?`)) editSubmit({ action: "del_row", row: +x.dataset.row });
+    if (confirm(`删除第 ${+x.dataset.row + 1} 行？`)) editSubmit({ action: "del_row", row: +x.dataset.row });
   }));
   $$("th[data-col]").forEach(th => th.addEventListener("click", () => cycleType(th.dataset.col)));
   $$(".col-chip").forEach(ch => ch.addEventListener("click", () => variableMenu(ch)));
@@ -348,7 +348,7 @@ function variableMenu(chip) {
     closePopover();
     if (b.dataset.t) setType(col, b.dataset.t);
     else if (b.dataset.act === "label") openLabelModal(col);
-    else if (confirm(`删除列「${col}」?该操作可撤销。`)) editSubmit({ action: "del_col", column: col });
+    else if (confirm(`删除列「${col}」？该操作可撤销。`)) editSubmit({ action: "del_col", column: col });
   }));
 }
 
@@ -368,9 +368,9 @@ function openLabelModal(col) {
   openModal(`
     <div class="modal-head"><h3>标签 · ${esc(col)}</h3><button class="modal-close">×</button></div>
     <div class="modal-body">
-      <div class="opt-row"><label class="field-label">变量标签(结果中更易读的名称)</label>
+      <div class="opt-row"><label class="field-label">变量标签（结果中更易读的名称）</label>
         <input id="lbVar" class="input" value="${esc(meta.label || "")}" placeholder="例:治疗疗效评级"></div>
-      <div class="opt-row"><label class="field-label">值标签(每行一条,格式:原值=标签;sav 上传时自动读取)</label>
+      <div class="opt-row"><label class="field-label">值标签（每行一条，格式：原值=标签；sav 上传时自动读取）</label>
         <textarea id="lbVals" class="textarea" rows="6" placeholder="1=无效\n2=有效\n3=显效">${esc(valsText)}</textarea></div>
     </div>
     <div class="modal-foot">
@@ -408,7 +408,7 @@ function weightMenu(anchor) {
       await api(`/api/datasets/${S.ds.id}/weight`, { method: "POST", body: { column: b.dataset.w || null } });
       S.ds = await api(`/api/datasets/${S.ds.id}?page=${S.dataPage}&page_size=${S.pageSize}`);
       renderDataView();
-      toast(b.dataset.w ? `已按「${b.dataset.w}」加权:描述统计/频数/卡方将使用加权计算` : "已取消加权", "ok");
+      toast(b.dataset.w ? `已按「${b.dataset.w}」加权：描述统计/频数/卡方将使用加权计算` : "已取消加权", "ok");
     } catch (err) { toast(err.message, "err"); }
   }));
 }
@@ -416,25 +416,25 @@ function weightMenu(anchor) {
 /* 数据集合并:纵向追加 / 横向关联,生成新数据集 */
 function openMergeModal() {
   const others = S.datasets.filter(d => d.id !== S.ds.id);
-  if (!others.length) { toast("只有一个数据集,先上传或载入另一个", "err"); return; }
+  if (!others.length) { toast("只有一个数据集，先上传或载入另一个", "err"); return; }
   const colOpts = S.ds.columns.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
   openModal(`
     <div class="modal-head"><h3>合并数据集 · ${esc(S.ds.name)}</h3><button class="modal-close">×</button></div>
     <div class="modal-body">
       <div class="opt-row"><label class="field-label">另一数据集</label>
-        <select id="mgOther" class="select">${others.map(d => `<option value="${d.id}">${esc(d.name)}(${d.rows}×${d.cols})</option>`).join("")}</select></div>
+        <select id="mgOther" class="select">${others.map(d => `<option value="${d.id}">${esc(d.name)}（${d.rows}×${d.cols}）</option>`).join("")}</select></div>
       <div class="opt-row"><label class="field-label">合并方式</label>
         <select id="mgHow" class="select">
-          <option value="append">纵向追加(上下拼接,按列名对齐)</option>
-          <option value="join">横向关联(按关键列左右连接)</option>
+          <option value="append">纵向追加（上下拼接，按列名对齐）</option>
+          <option value="join">横向关联（按关键列左右连接）</option>
         </select></div>
       <div id="mgJoinBox" style="display:none">
-        <div class="opt-row"><label class="field-label">关联键列(需两表同名)</label>
+        <div class="opt-row"><label class="field-label">关联键列（需两表同名）</label>
           <select id="mgOn" class="select">${colOpts}</select></div>
         <div class="opt-row"><label class="field-label">关联方式</label>
-          <select id="mgJoin" class="select"><option value="inner">内联(取交集)</option><option value="left">左连(保留左表全部行)</option></select></div>
+          <select id="mgJoin" class="select"><option value="inner">内联（取交集）</option><option value="left">左连（保留左表全部行）</option></select></div>
       </div>
-      <p class="opt-tip">合并生成新数据集,原数据不变。</p>
+      <p class="opt-tip">合并生成新数据集，原数据不变。</p>
     </div>
     <div class="modal-foot">
       <button class="btn" id="mgCancel">取消</button>
@@ -453,7 +453,7 @@ function openMergeModal() {
       closeModal();
       await loadDatasets();
       await selectDataset(ds.id, { silent: true });
-      toast(`已合并:${ds.rows} 行 × ${ds.cols} 列`, "ok");
+      toast(`已合并：${ds.rows} 行 × ${ds.cols} 列`, "ok");
     } catch (err) { toast(err.message, "err"); }
   });
 }
@@ -477,29 +477,29 @@ function openProcessModal() {
   const colOpts = ds.columns.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
   const quantOpts = ds.columns.filter(c => c.dtype === "quant").map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
   const forms = {
-    fill_missing: `<div class="opt-row"><label class="field-label">目标列(可多选)</label><select id="pfCols" class="select" multiple size="6">${colOpts}</select></div>
+    fill_missing: `<div class="opt-row"><label class="field-label">目标列（可多选）</label><select id="pfCols" class="select" multiple size="6">${colOpts}</select></div>
       <div class="opt-row"><label class="field-label">填充方式</label><select id="pfMethod" class="select">
         <option value="mean">均值(定量)</option><option value="median">中位数(定量)</option><option value="mode">众数</option>
         <option value="ffill">前一有效值</option><option value="constant">常数</option></select></div>
-      <div class="opt-row"><label class="field-label">常数值(方式选常数时)</label><input id="pfValue" class="input" value="0"></div>`,
-    drop_missing: `<div class="opt-row"><label class="field-label">检查列(留空=所有列)</label><select id="pfCols" class="select" multiple size="6">${colOpts}</select></div>
+      <div class="opt-row"><label class="field-label">常数值（方式选常数时）</label><input id="pfValue" class="input" value="0"></div>`,
+    drop_missing: `<div class="opt-row"><label class="field-label">检查列（留空=所有列）</label><select id="pfCols" class="select" multiple size="6">${colOpts}</select></div>
       <div class="opt-row"><label class="field-label">删除条件</label><select id="pfHow" class="select"><option value="any">任一列缺失</option><option value="all">全部列缺失</option></select></div>`,
-    winsorize: `<div class="opt-row"><label class="field-label">定量列(可多选)</label><select id="pfCols" class="select" multiple size="6">${quantOpts}</select></div>
+    winsorize: `<div class="opt-row"><label class="field-label">定量列（可多选）</label><select id="pfCols" class="select" multiple size="6">${quantOpts}</select></div>
       <div class="opt-row"><label class="field-label">判定方法</label><select id="pfMethod" class="select"><option value="3sigma">3σ 法则</option><option value="iqr">四分位 IQR</option></select></div>`,
-    standardize: `<div class="opt-row"><label class="field-label">定量列(可多选)</label><select id="pfCols" class="select" multiple size="6">${quantOpts}</select></div>
+    standardize: `<div class="opt-row"><label class="field-label">定量列（可多选）</label><select id="pfCols" class="select" multiple size="6">${quantOpts}</select></div>
       <div class="opt-row"><label class="field-label">方法</label><select id="pfMethod" class="select">
-        <option value="zscore">Z 标准化(均值0方差1)</option><option value="minmax">归一化 [0,1]</option>
-        <option value="center">中心化</option><option value="robust">稳健标准化(中位数/IQR)</option></select></div>`,
+        <option value="zscore">Z 标准化（均值0方差1）</option><option value="minmax">归一化 [0,1]</option>
+        <option value="center">中心化</option><option value="robust">稳健标准化（中位数/IQR）</option></select></div>`,
     dummy: `<div class="opt-row"><label class="field-label">定类列</label><select id="pfCol" class="select">${colOpts}</select></div>`,
     recode_bins: `<div class="opt-row"><label class="field-label">定量列</label><select id="pfCol" class="select">${quantOpts}</select></div>
       <div class="opt-row"><label class="field-label">组数</label><input id="pfBins" class="input" type="number" value="3" min="2" max="10"></div>
       <div class="opt-row"><label class="field-label">新列名</label><input id="pfNew" class="input" value="分组"></div>`,
-    compute: `<div class="opt-row"><label class="field-label">公式(可用列名与 + - * / ( ),例: 月薪 * 1.2 + 工龄 * 100)</label>
+    compute: `<div class="opt-row"><label class="field-label">公式（可用列名与 + - * / ( )，例：月薪 * 1.2 + 工龄 * 100）</label>
       <textarea id="pfExpr" class="textarea" placeholder="月薪 / 1000"></textarea></div>
       <div class="opt-row"><label class="field-label">新列名</label><input id="pfNew" class="input" value="新变量"></div>`,
-    filter: `<div class="opt-row"><label class="field-label">筛选表达式(例: 年龄 > 30 and 性别 == '男')</label>
+    filter: `<div class="opt-row"><label class="field-label">筛选表达式（例：年龄 > 30 and 性别 == '男'）</label>
       <textarea id="pfExpr" class="textarea" placeholder="总体满意度 >= 4"></textarea></div>`,
-    sort: `<div class="opt-row"><label class="field-label">排序列(可多选,按顺序)</label><select id="pfCols" class="select" multiple size="5">${colOpts}</select></div>
+    sort: `<div class="opt-row"><label class="field-label">排序列（可多选，按顺序）</label><select id="pfCols" class="select" multiple size="5">${colOpts}</select></div>
       <div class="opt-row"><label class="field-label">方向</label><select id="pfAsc" class="select"><option value="1">升序</option><option value="0">降序</option></select></div>`,
     cast: `<div class="opt-row"><label class="field-label">目标列</label><select id="pfCol" class="select">${colOpts}</select></div>
       <div class="opt-row"><label class="field-label">转为</label><select id="pfTarget" class="select">
@@ -590,7 +590,7 @@ async function viewModel(id) {
         S.slots[k] = Array.isArray(v) ? v.filter(c => valid.has(c)) : "";
       }
     }
-    if (dropped.length) toast(`回放:变量「${dropped.join("、")}」已不在当前数据集中,已移除`, "err");
+    if (dropped.length) toast(`回放：变量「${dropped.join("、")}」已不在当前数据集中，已移除`, "err");
     S.options = { ...rp.options };
   } else if (!prevModel || prevModel.id !== found.id) {
     S.slots = {};
@@ -693,7 +693,7 @@ function openVarPicker(anchor, slotKey) {
     const lv = [c.label, c.levels ? `${c.levels.length} 水平` : ""].filter(Boolean).join(" · ");
     return `<button class="pop-item" data-col="${esc(c.name)}" title="${esc(c.label || c.name)}">
       ${vtBadge(c.dtype)}<span>${esc(c.name)}</span><span class="pi-meta">${esc(lv)}</span></button>`;
-  }).join("") || `<div style="padding:14px;font-size:12.5px;color:var(--ink-3)">当前数据集没有符合该槽位类型的变量,可到数据页修改变量类型。</div>`;
+  }).join("") || `<div style="padding:14px;font-size:12.5px;color:var(--ink-3)">当前数据集没有符合该槽位类型的变量，可到数据页修改变量类型。</div>`;
   const pop = openPopover(anchor, `<div class="pop-head">选择:${esc(spec.label)}<span style="font-weight:400">${spec.multiple ? "可多选" : "单选"}</span></div><div class="pop-list">${items}</div>`);
   $$(".pop-item", pop).forEach(b => b.addEventListener("click", () => {
     const col = b.dataset.col;
@@ -712,8 +712,8 @@ function openVarPicker(anchor, slotKey) {
 function resultEmptyHtml(model) {
   return `<div class="result-empty card">
     <div class="re-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19h16M7 15l3.5-4.5 3 2.5L18 7"/></svg></div>
-    <h4>在左侧配置变量,点「运行分析」</h4>
-    <p>结果将在此展示:智能解读 → 结果表格 → 可视化图表。<br>当前模型:${esc(model.name)}</p>
+    <h4>在左侧配置变量，点「运行分析」</h4>
+    <p>结果将在此展示：智能解读 → 结果表格 → 可视化图表。<br>当前模型：${esc(model.name)}</p>
   </div>`;
 }
 
@@ -786,7 +786,7 @@ function viewReport() {
   const v = $("#view");
   if (!S.history.length) {
     v.innerHTML = `<div class="card report-empty"><h3>暂无分析记录</h3>
-      <p>运行任意模型后,本次会话的分析结果会自动汇总到这里,并可一键导出为可打印的 HTML 报告。</p>
+      <p>运行任意模型后，本次会话的分析结果会自动汇总到这里，并可一键导出为可打印的 HTML 报告。</p>
       <a class="btn primary" href="#/">去运行第一个分析 →</a></div>`;
     return;
   }
@@ -842,7 +842,7 @@ function viewReport() {
 async function replayHistory(i) {
   const e = S.history[i];
   if (!e?.modelId) return;
-  if (!S.datasets.some(d => d.id === e.dsId)) { toast("原数据集已被删除,无法回放", "err"); return; }
+  if (!S.datasets.some(d => d.id === e.dsId)) { toast("原数据集已被删除，无法回放", "err"); return; }
   if (!S.ds || S.ds.id !== e.dsId) await selectDataset(e.dsId, { silent: true });
   S._replay = { modelId: e.modelId, slots: e.slots || {}, options: e.options || {} };
   const target = `#/m/${e.modelId}`;
@@ -855,7 +855,7 @@ function collectReport() {
   const dark = document.documentElement.dataset.theme === "dark";
   return {
     title: "数据分析报告",
-    generated: `生成时间:${new Date().toLocaleString("zh-CN")} · 共 ${S.history.length} 项分析 · 由 OpenSPSS 生成`,
+    generated: `生成时间：${new Date().toLocaleString("zh-CN")} · 共 ${S.history.length} 项分析 · 由 OpenSPSS 生成`,
     dark,
     items: S.history.map((e, i) => ({
       title: `${i + 1}. ${e.modelName}`,
@@ -977,7 +977,7 @@ async function boot() {
         ex.style.display = "";
         ex.addEventListener("click", (e) => {
           e.preventDefault();
-          if (!confirm("停止本地 OpenSPSS 服务并退出?")) return;
+          if (!confirm("停止本地 OpenSPSS 服务并退出？")) return;
           api("/api/shutdown", { method: "POST" }).finally(() => {
             document.body.innerHTML = `<div style="display:flex;height:100vh;align-items:center;justify-content:center;color:#64748b;font-size:14px">OpenSPSS 已停止,可关闭此窗口。</div>`;
           });

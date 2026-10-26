@@ -32,14 +32,14 @@ def fill_missing(ds: Dataset, cols: list[str], method: str = "mean", value: floa
                 ds.df[c] = s.fillna(str(value))
         else:
             raise ModelError("未知填充方式")
-    return f"缺失值填充({dict(mean='均值', median='中位数', mode='众数', ffill='前值', constant='常数').get(method, method)}): {', '.join(cols)}"
+    return f"缺失值填充（{dict(mean='均值', median='中位数', mode='众数', ffill='前值', constant='常数').get(method, method)}）：{'、'.join(cols)}"
 
 
 def drop_missing(ds: Dataset, cols: list[str], how: str = "any") -> str:
     before = len(ds.df)
     subset = cols if cols else None
     ds.df = ds.df.dropna(subset=subset, how=how).reset_index(drop=True)
-    return f"删除缺失行({how}): {before} → {len(ds.df)} 行"
+    return f"删除缺失行（{how}）：{before} → {len(ds.df)} 行"
 
 
 # ---------------- 异常值 ----------------
@@ -57,7 +57,7 @@ def winsorize(ds: Dataset, cols: list[str], method: str = "3sigma", suffix: str 
         ds.df[c + suffix] = ds.df[c].where(~ds.df[c].notna(), np.nan).astype(float) \
             if not pd.api.types.is_numeric_dtype(ds.df[c]) else ds.df[c].astype(float)
         ds.df[c + suffix] = pd.to_numeric(ds.df[c], errors="coerce").clip(lo, hi)
-    return f"异常值缩尾({('3σ' if method == '3sigma' else 'IQR')}): 生成列 {', '.join(c + suffix for c in cols)}"
+    return f"异常值缩尾（{('3σ' if method == '3sigma' else 'IQR')}）：生成列 {'、'.join(c + suffix for c in cols)}"
 
 
 # ---------------- 标准化 ----------------
@@ -79,7 +79,7 @@ def standardize(ds: Dataset, cols: list[str], method: str = "zscore") -> str:
             out = (s - s.median()) / (iqr if iqr else 1)
         ds.df[c + tag] = out
     name = {"zscore": "Z标准化", "minmax": "归一化[0,1]", "center": "中心化", "robust": "稳健标准化"}[method]
-    return f"{name}: 生成列 {', '.join(c + tag for c in cols)}"
+    return f"{name}：生成列 {'、'.join(c + tag for c in cols)}"
 
 
 # ---------------- 哑变量 ----------------
@@ -91,7 +91,7 @@ def dummy_encode(ds: Dataset, col: str, drop_first: bool = True, prefix: str = "
         raise ModelError("该列取值过少,无法生成哑变量")
     for d in dummies.columns:
         ds.df[d] = dummies[d]
-    return f"哑变量编码「{col}」: 新增 {dummies.shape[1]} 列"
+    return f"哑变量编码「{col}」：新增 {dummies.shape[1]} 列"
 
 
 # ---------------- 重编码 ----------------
@@ -106,12 +106,12 @@ def recode_bins(ds: Dataset, col: str, bins: int, labels: list[str] | None,
     ds.df[new_name] = pd.qcut(s, q=bins, labels=lab, duplicates="drop")
     ds.df[new_name] = ds.df[new_name].cat.add_categories(["缺失"]).fillna("缺失") \
         if hasattr(ds.df[new_name], "cat") else ds.df[new_name]
-    return f"重编码「{col}」→「{new_name}」(按分位数分 {bins} 组)"
+    return f"重编码「{col}」→「{new_name}」（按分位数分 {bins} 组）"
 
 
 def recode_map(ds: Dataset, col: str, mapping: dict[str, str], new_name: str) -> str:
     ds.df[new_name] = ds.df[col].astype(str).map(mapping).fillna(ds.df[col])
-    return f"重编码「{col}」→「{new_name}」(映射 {len(mapping)} 项)"
+    return f"重编码「{col}」→「{new_name}」（映射 {len(mapping)} 项）"
 
 
 # ---------------- 计算变量 ----------------
@@ -123,7 +123,7 @@ def compute_var(ds: Dataset, expr: str, new_name: str) -> str:
     try:
         res = ds.df.eval(expr)
     except Exception as e:  # noqa: BLE001
-        raise ModelError(f"公式执行失败: {e}(请使用列名与 + - * / ( ) 数字)") from e
+        raise ModelError(f"公式执行失败：{e}（请使用列名与 + - * / ( ) 数字）") from e
     ds.df[new_name] = res
     return f"计算变量「{new_name}」= {expr}"
 
@@ -136,14 +136,14 @@ def filter_rows(ds: Dataset, expr: str) -> str:
     try:
         before = len(ds.df)
         ds.df = ds.df.query(expr).reset_index(drop=True)
-        return f"筛选「{expr}」: {before} → {len(ds.df)} 行"
+        return f"筛选「{expr}」：{before} → {len(ds.df)} 行"
     except Exception as e:  # noqa: BLE001
-        raise ModelError(f"筛选失败: {e}(示例: 年龄 > 30 and 性别 == '男')") from e
+        raise ModelError(f"筛选失败：{e}（示例：年龄 > 30 and 性别 == '男'）") from e
 
 
 def sort_rows(ds: Dataset, cols: list[str], ascending: list[bool]) -> str:
     ds.df = ds.df.sort_values(by=cols, ascending=ascending).reset_index(drop=True)
-    return f"排序: {', '.join(cols)}"
+    return f"排序：{'、'.join(cols)}"
 
 
 def cast_type(ds: Dataset, col: str, target: str) -> str:
@@ -175,7 +175,7 @@ def apply_value_labels(ds: Dataset, cols: list[str], suffix: str = "") -> str:
         out.append(col)
     if not out:
         raise ValueError("所选列没有值标签;sav 文件的值标签会在上传时自动读取")
-    return f"值标签已转为文本: {', '.join(out)}"
+    return f"值标签已转为文本：{'、'.join(out)}"
 
 
 OPERATIONS = {

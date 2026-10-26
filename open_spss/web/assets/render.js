@@ -35,7 +35,7 @@ function showCodeModal(code, modelName = "分析") {
   openModal(`
     <div class="modal-head"><h3>可复现代码 · ${esc(modelName)}</h3><button class="modal-close">×</button></div>
     <div class="modal-body code-modal-body">
-      <p class="code-tip">与本次界面分析的统计过程等效,可直接在 Python ≥3.10 环境运行(列名请与你的数据保持一致)。</p>
+      <p class="code-tip">与本次界面分析的统计过程等效，可直接在 Python ≥3.10 环境运行（列名请与你的数据保持一致）。</p>
       <pre class="code-view">${esc(code)}</pre>
     </div>
     <div class="modal-foot">

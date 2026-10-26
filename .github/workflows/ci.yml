@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]        # 不加 tags 时,限定 branches 会连带排除 tag 推送
   pull_request:
   workflow_dispatch:
 
@@ -24,7 +25,14 @@ jobs:
       - name: 文档一致性(README 计数与模型注册表同步)
         run: python scripts/sync_models.py --check
       - name: pytest(全模型冒烟 + 单元测试)
-        run: pytest tests/ -q
+        run: |
+          set +e
+          pytest tests/ -q --tb=line > /tmp/pytest.log 2>&1
+          code=$?
+          tail -25 /tmp/pytest.log
+          grep -E "^(FAILED|ERROR)" /tmp/pytest.log | head -10 | while IFS= read -r ln; do echo "::error title=pytest::$ln"; done
+          grep -E "^[^ ].* (Error|Exception)" /tmp/pytest.log | head -10 | while IFS= read -r ln; do echo "::error title=tb::$ln"; done
+          exit $code
 
   wheel:
     if: startsWith(github.ref, 'refs/tags/v')
