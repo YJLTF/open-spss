@@ -823,7 +823,12 @@ function viewReport() {
     </nav>
     ${html}`;
   $$("[data-replay]").forEach(b => b.addEventListener("click", () => replayHistory(+b.dataset.replay)));
-  $$("[data-replay]").forEach(b => b.addEventListener("click", () => replayHistory(+b.dataset.replay)));
+  // 目录锚点不能真改 hash:应用是 hash 路由,#rp0 会被当作未知路由回退到首页
+  $$(".report-toc a").forEach(a => a.addEventListener("click", ev => {
+    ev.preventDefault();
+    document.getElementById(a.getAttribute("href").slice(1))
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   $("#btnReportExport").addEventListener("click", exportReportHtml);
   $("#btnReportDocx").addEventListener("click", () => exportReportFile("docx"));
   $("#btnReportPdf").addEventListener("click", () => exportReportFile("pdf"));
