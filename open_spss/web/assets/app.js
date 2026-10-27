@@ -838,8 +838,8 @@ function recordHistory(result) {
     .map(s => {
       const v = S.slots[s.key];
       const val = Array.isArray(v) ? v.join("、") : v;
-      return `${s.label}:${val || "—"}`;
-    }).join(";");
+      return `${s.label}：${val || "—"}`;
+    }).join("；");
   S.history.unshift({
     time: new Date(),
     modelId: S.model?.id || "",

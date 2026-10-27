@@ -78,7 +78,7 @@ def build_docx(p: ReportPayload) -> bytes:
             mp.runs[0].font.size = Pt(9)
             mp.runs[0].font.color.rgb = RGBColor(0x8B, 0x94, 0xAB)
         if it.slots:
-            sp = doc.add_paragraph("变量配置:" + it.slots)
+            sp = doc.add_paragraph("变量配置：" + it.slots)
             sp.runs[0].font.size = Pt(9)
         for para in it.paragraphs:
             doc.add_paragraph(_plain(para))
@@ -102,7 +102,7 @@ def build_docx(p: ReportPayload) -> bytes:
                     for run in cells[j].paragraphs[0].runs:
                         run.font.size = Pt(9)
             if t.note:
-                np_ = doc.add_paragraph("注:" + t.note)
+                np_ = doc.add_paragraph("注：" + t.note)
                 np_.runs[0].font.size = Pt(8.5)
                 np_.runs[0].font.color.rgb = RGBColor(0x64, 0x74, 0x8B)
         for c in it.charts:
@@ -141,14 +141,15 @@ def build_pdf(p: ReportPayload) -> bytes:
     line = colors.HexColor("#D6DBE8") if not p.dark else colors.HexColor("#303A5E")
     head_bg = colors.HexColor("#F1F5F9") if not p.dark else colors.HexColor("#1C2340")
 
-    st_title = ParagraphStyle("t", fontName="STSong-Light", fontSize=20, alignment=1,
-                              textColor=ink, spaceAfter=6)
-    st_meta = ParagraphStyle("m", fontName="STSong-Light", fontSize=9, alignment=1,
-                             textColor=muted, spaceAfter=14)
-    st_h1 = ParagraphStyle("h1", fontName="STSong-Light", fontSize=14, textColor=ink,
-                           spaceBefore=14, spaceAfter=6, borderPadding=3)
-    st_h2 = ParagraphStyle("h2", fontName="STSong-Light", fontSize=11, textColor=ink,
-                           spaceBefore=8, spaceAfter=4)
+    # leading 必须显式给足(默认恒为 12):中文字形占满字身框,行高不足会与相邻段落重叠
+    st_title = ParagraphStyle("t", fontName="STSong-Light", fontSize=20, leading=28,
+                              alignment=1, textColor=ink, spaceAfter=6)
+    st_meta = ParagraphStyle("m", fontName="STSong-Light", fontSize=9, leading=13,
+                             alignment=1, textColor=muted, spaceAfter=14)
+    st_h1 = ParagraphStyle("h1", fontName="STSong-Light", fontSize=14, leading=20,
+                           textColor=ink, spaceBefore=14, spaceAfter=6, borderPadding=3)
+    st_h2 = ParagraphStyle("h2", fontName="STSong-Light", fontSize=11, leading=16,
+                           textColor=ink, spaceBefore=8, spaceAfter=4)
     st_body = ParagraphStyle("b", fontName="STSong-Light", fontSize=10, leading=16,
                              textColor=ink, spaceAfter=4)
     st_small = ParagraphStyle("s", fontName="STSong-Light", fontSize=8.5, leading=12,
@@ -166,7 +167,7 @@ def build_pdf(p: ReportPayload) -> bytes:
         if it.meta:
             story.append(Paragraph(it.meta, st_small))
         if it.slots:
-            story.append(Paragraph("变量配置:" + it.slots, st_small))
+            story.append(Paragraph("变量配置：" + it.slots, st_small))
         for para in it.paragraphs:
             story.append(Paragraph(_plain(para), st_body))
         for t in it.tables:
@@ -187,7 +188,7 @@ def build_pdf(p: ReportPayload) -> bytes:
                          ("BOTTOMPADDING", (0, 0), (-1, -1), 2)])
             story.append(tb)
             if t.note:
-                story.append(Paragraph("注:" + t.note, st_small))
+                story.append(Paragraph("注：" + t.note, st_small))
         for c in it.charts:
             img = _png_bytes(c.png)
             if img:
