@@ -234,6 +234,15 @@ class Dataset:
         self.columns.append({"name": name, "dtype": dtype, "label": "", "vals": {}})
         self.save()
 
+    def write_col(self, name: str, values, dtype: str = "quant") -> None:
+        """模型结果写回:整列赋值并同步列元数据(同名覆盖,元数据保留首次类型),落盘持久化"""
+        if dtype not in DTYPES:
+            raise ModelError(f"未知变量类型: {dtype}")
+        self.df[name] = values
+        if not any(c["name"] == name for c in self.columns):
+            self.columns.append({"name": name, "dtype": dtype, "label": "", "vals": {}})
+        self.save()
+
     def del_col(self, name: str) -> None:
         self._col_meta_of(name)
         self._push_snapshot()

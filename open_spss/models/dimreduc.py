@@ -71,8 +71,9 @@ def _run_pca(ds: Dataset, sl: dict, op: dict) -> Result:
     scores = pca.transform(data.values)
     if op["save_scores"]:
         for i in range(min(k, 5)):
-            ds.df[f"PC{i + 1}"] = np.nan
-            ds.df.loc[data.index, f"PC{i + 1}"] = scores[:, i]
+            col = pd.Series(np.nan, index=ds.df.index, dtype=float)
+            col.loc[data.index] = scores[:, i]
+            ds.write_col(f"PC{i + 1}", col, "quant")
         res.add_note(f"已将前 {min(k, 5)} 个主成分得分写回数据集(PC1~PC{min(k,5)} 列)")
     res.add_chart("碎石图", ch.line_chart("碎石图", [f"主成分{i+1}" for i in range(k)],
                  {"特征值": [round(float(v), 4) for v in eig]}, x_name="成分", smooth=False))
@@ -165,8 +166,9 @@ def _run_factor(ds: Dataset, sl: dict, op: dict) -> Result:
     scores = X @ inv @ loadings
     if op["save_scores"]:
         for i in range(min(k, 5)):
-            ds.df[f"F{i + 1}"] = np.nan
-            ds.df.loc[data.index, f"F{i + 1}"] = scores[:, i]
+            col = pd.Series(np.nan, index=ds.df.index, dtype=float)
+            col.loc[data.index] = scores[:, i]
+            ds.write_col(f"F{i + 1}", col, "quant")
         res.add_note(f"已保存因子得分列 F1~F{min(k,5)}(回归法)")
     res.add_chart("因子载荷热力图", ch.heatmap_chart("因子载荷热力图", [f"因子{i+1}" for i in range(k)],
                  cols, loadings.tolist(), fmt="{c:.2f}", v_min=-1, v_max=1))
@@ -238,8 +240,9 @@ def _run_kmeans(ds: Dataset, sl: dict, op: dict) -> Result:
         res.add_chart("聚类散点图(前两个变量)", ch.scatter_chart("聚类结果散点图",
                      pts_by_cluster, x_name=cols[0], y_name=cols[1], symbol=7))
     if op["save"]:
-        ds.df["聚类类别"] = pd.Series(np.nan, index=ds.df.index, dtype="object")
-        ds.df.loc[data.index, "聚类类别"] = [f"类别{l + 1}" for l in labels]
+        col = pd.Series(np.nan, index=ds.df.index, dtype="object")
+        col.loc[data.index] = [f"类别{l + 1}" for l in labels]
+        ds.write_col("聚类类别", col, "cat")
         res.add_note("已将聚类类别写回数据集(列:聚类类别)")
     sizes = [int((labels == c).sum()) for c in range(k)]
     res.add_interp(
@@ -313,8 +316,9 @@ def _run_hier(ds: Dataset, sl: dict, op: dict) -> Result:
     else:
         res.add_note(f"样本量 {len(data)} > {max_show},为保持图表可读性未绘制树状图")
     if op["save"]:
-        ds.df["层次聚类类别"] = pd.Series(np.nan, index=ds.df.index, dtype="object")
-        ds.df.loc[data.index, "层次聚类类别"] = [f"类别{l}" for l in labels]
+        col = pd.Series(np.nan, index=ds.df.index, dtype="object")
+        col.loc[data.index] = [f"类别{l}" for l in labels]
+        ds.write_col("层次聚类类别", col, "cat")
         res.add_note("已将类别写回数据集(列:层次聚类类别)")
     res.add_interp(
         f"采用 {op['method']} 联接法将样本聚为 {k} 类,各类样本量 "
@@ -369,8 +373,9 @@ def _run_dbscan(ds: Dataset, sl: dict, op: dict) -> Result:
         res.add_chart("密度聚类散点图", ch.scatter_chart("DBSCAN 聚类结果", series,
                      x_name=cols[0], y_name=cols[1], symbol=7))
     if op["save"]:
-        ds.df["DBSCAN簇"] = pd.Series(np.nan, index=ds.df.index, dtype="object")
-        ds.df.loc[data.index, "DBSCAN簇"] = [("噪声" if l == -1 else f"簇{l + 1}") for l in labels]
+        col = pd.Series(np.nan, index=ds.df.index, dtype="object")
+        col.loc[data.index] = [("噪声" if l == -1 else f"簇{l + 1}") for l in labels]
+        ds.write_col("DBSCAN簇", col, "cat")
     res.add_interp(
         f"DBSCAN 识别出 **{n_clusters}** 个密度簇与 {n_noise} 个噪声点"
         f"({n_noise / len(data) * 100:.1f}%)。eps 为邻域半径,min_samples 为核心点最小邻居数;"

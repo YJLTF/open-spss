@@ -130,7 +130,7 @@ def _ml_runner(model_factory, model_name: str):
                 col.loc[X.index] = [levels[int(v)] for v in np.asarray(pred_all).ravel()]
             else:
                 col.loc[X.index] = np.asarray(pred_all).ravel()
-            ds.df[name] = col
+            ds.write_col(name, col, "cat" if task == "classification" else "quant")
             res.add_note(f"预测结果已写回数据集(列:{name})")
         preview_rows = []
         for i in range(min(20, len(X))):
@@ -319,8 +319,9 @@ def _run_isolation_forest(ds: Dataset, sl: dict, op: dict) -> Result:
                    for i in [data.index.get_loc(ix) for ix in out_idx[order]]])
     if op["save_pred"]:
         colname = "是否异常"
-        ds.df[colname] = pd.Series(np.nan, index=ds.df.index, dtype="object")
-        ds.df.loc[data.index, colname] = np.where(label == -1, "异常", "正常")
+        col = pd.Series(np.nan, index=ds.df.index, dtype="object")
+        col.loc[data.index] = np.where(label == -1, "异常", "正常")
+        ds.write_col(colname, col, "cat")
         res.add_note(f"已将检测结果写回数据集列「{colname}」")
     # 二维可视化:取前两个变量(或 PC1/PC2)
     if len(cols) >= 2:
