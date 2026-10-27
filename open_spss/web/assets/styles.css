@@ -588,3 +588,23 @@ html[data-theme="dark"] {
 html[data-theme="dark"] .logo em { background: linear-gradient(100deg, #93A0FF, #6FC3FF); -webkit-background-clip: text; background-clip: text; }
 html[data-theme="dark"] .hero h2 .grad { background: linear-gradient(95deg, #93A0FF, #6FC3FF 70%); -webkit-background-clip: text; background-clip: text; }
 html[data-theme="dark"] .grid td input.cell-input { background: var(--card); color: var(--ink); }
+
+/* ---------------- 分析方案与数据集管理(v1.2.0) ---------------- */
+.ds-row .del { opacity: 0; color: var(--rose); font-size: 15px; padding: 2px 7px; border-radius: 6px; cursor: pointer; flex: none; }
+.ds-row:hover .del { opacity: .75; }
+.ds-row .del:hover { background: var(--rose-soft); opacity: 1; }
+
+.plan-row { display: flex; align-items: center; gap: 6px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.plan-row:last-child { border-bottom: none; }
+.plan-row-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plan-row-meta { color: var(--ink-3); font-size: 12px; }
+
+.plan-badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 700; flex: none; }
+.plan-badge.ok { color: var(--teal); background: var(--teal-soft); }
+.plan-badge.skip { color: var(--amber); background: var(--amber-soft); }
+.plan-badge.err { color: var(--rose); background: var(--rose-soft); }
+
+.plan-summary { padding: 12px 18px; margin-bottom: 14px; font-size: 13.5px; color: var(--ink-2); }
+.plan-summary.warn { border-left: 4px solid var(--amber); }
+.plan-err { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--err-bg); border: 1px solid var(--err-line); }
+.plan-err .err-body { color: var(--err-ink); font-size: 13px; margin: 0; }

@@ -84,7 +84,7 @@ function renderDatasetBox() {
     const items = S.datasets.map(d => `
       <button class="ds-menu-item" data-id="${d.id}">📊 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</span>
         <span class="ds-size">${d.rows}×${d.cols}</span>
-        ${d.source === "sample" ? "" : `<span class="del" data-del="${d.id}" title="删除">×</span>`}</button>`).join("")
+        <span class="del" data-del="${d.id}" title="删除">×</span></button>`).join("")
       || `<div style="padding:10px;font-size:12px">暂无数据集</div>`;
     const pop = openPopover(e.currentTarget, `<div class="pop-head">数据集<button class="btn ghost" style="padding:2px 8px;font-size:11.5px" id="dsNew">＋ 上传/示例</button></div><div class="pop-list">${items}</div>`);
     $$(".ds-menu-item", pop).forEach(b => b.addEventListener("click", (ev) => {
@@ -96,8 +96,13 @@ function renderDatasetBox() {
 }
 
 async function delDataset(id) {
-  await api(`/api/datasets/${id}`, { method: "DELETE" });
-  toast("数据集已删除");
+  const d = S.datasets.find(x => x.id === id);
+  if (!d) return;
+  if (!confirm(`删除数据集「${d.name}」？将同时删除本地落盘文件，不可恢复。`)) return;
+  try {
+    await api(`/api/datasets/${id}`, { method: "DELETE" });
+  } catch (err) { toast(err.message, "err"); return; }
+  toast(`已删除数据集「${d.name}」`);
   if (S.ds && S.ds.id === id) { S.ds = null; localStorage.removeItem("ospss.ds"); }
   await loadDatasets();
   renderTree($("#modelSearch").value);
@@ -113,6 +118,7 @@ function route() {
   if ((m = hash.match(/^#\/m\/([\w-]+)/))) return viewModel(m[1]);
   if ((m = hash.match(/^#\/data\/([\w-]+)/))) return viewData(m[1]);
   if (hash === "#/report") return viewReport();
+  if ((m = hash.match(/^#\/plan\/([\w-]+)/))) return viewPlan(m[1]);
   viewWelcome();
 }
 
@@ -163,6 +169,7 @@ function viewWelcome() {
         <div class="ds-row" data-id="${d.id}" tabindex="0" role="button">
           <div><div class="dsr-name">${esc(d.name)} ${d.source === "sample" ? `<span class="badge-sample">示例</span>` : ""}</div>
           <div class="dsr-meta">${d.rows} 行 × ${d.cols} 列</div></div>
+          <span class="del" data-delrow="${d.id}" title="删除">×</span>
           <svg class="arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </div>`).join("") || `<p style="color:var(--ink-3);font-size:13px">暂无，载入示例或上传文件后出现在这里。</p>`
     }</div>
@@ -176,14 +183,25 @@ function viewWelcome() {
   dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); });
   fi.addEventListener("change", () => { if (fi.files[0]) uploadFile(fi.files[0]); });
   $$(".sample-card", v).forEach(c => c.addEventListener("click", async () => {
+    const exist = S.datasets.find(d => d.source === "sample" && d.sampleKey === c.dataset.key);
+    if (exist) {
+      await selectDataset(exist.id);
+      toast(`示例「${exist.name}」已在列表中，已直接切换；数据页可「↺ 恢复示例」重置`, "ok");
+      return;
+    }
     c.style.opacity = ".6";
     try {
       const ds = await api(`/api/datasets/sample/${c.dataset.key}`, { method: "POST" });
       await loadDatasets();
       await selectDataset(ds.id);
+      if (ds.evicted) toast(`数据集已达上限（30 个），最早的「${ds.evicted}」已被清理`, "err");
     } catch (err) { toast(err.message, "err"); c.style.opacity = "1"; }
   }));
-  $$(".ds-row", v).forEach(r => r.addEventListener("click", () => selectDataset(r.dataset.id)));
+  $$(".ds-row", v).forEach(r => r.addEventListener("click", (e) => {
+    const del = e.target.closest(".del[data-delrow]");
+    if (del) { e.stopPropagation(); delDataset(del.dataset.delrow); return; }
+    selectDataset(r.dataset.id);
+  }));
 }
 
 async function uploadFile(file) {
@@ -194,6 +212,7 @@ async function uploadFile(file) {
     const ds = await api("/api/upload", { method: "POST", body: fd });
     await loadDatasets();
     await selectDataset(ds.id, { silent: true });
+    if (ds.evicted) toast(`数据集已达上限（30 个），最早的「${ds.evicted}」已被清理`, "err");
     toast(`已载入「${ds.name}」：${ds.rows} 行 × ${ds.cols} 列`, "ok");
   } catch (err) { toast(err.message, "err"); }
 }
@@ -214,6 +233,9 @@ function renderDataView() {
     <button class="btn" id="btnUndo" ${ds.canUndo ? "" : "disabled"} title="撤销 (Ctrl+Z)">⤺ 撤销</button>
     <button class="btn" id="btnRedo" ${ds.canRedo ? "" : "disabled"} title="重做 (Ctrl+Y)">⤻ 重做</button>
     <button class="btn" id="btnMerge" title="与另一数据集纵向追加 / 横向关联">⧉ 合并</button>
+    <button class="btn" id="btnExportDs" title="下载当前数据集（含编辑与模型写回的派生列）">⬇ 导出数据</button>
+    <button class="btn" id="btnDsName" title="重命名数据集">✎ 重命名</button>
+    ${ds.sampleKey ? `<button class="btn" id="btnResetSample" title="恢复为初始示例数据，当前修改将丢弃">↺ 恢复示例</button>` : ""}
     <button class="btn ${ds.weightCol ? "primary" : ""}" id="btnWeight" title="加权个案：按某列取值加权，描述/频数/卡方优先支持">⚖ 加权${ds.weightCol ? "：" + esc(ds.weightCol) : ""}</button>
     <button class="btn" id="btnProc">⚙ 数据处理</button>
     <button class="btn primary" id="btnAnalyze">开始分析 →</button>`);
@@ -222,6 +244,17 @@ function renderDataView() {
   $("#btnUndo").addEventListener("click", doUndo);
   $("#btnRedo").addEventListener("click", doRedo);
   $("#btnMerge").addEventListener("click", openMergeModal);
+  $("#btnExportDs")?.addEventListener("click", (e) => exportDsMenu(e.currentTarget));
+  $("#btnDsName")?.addEventListener("click", openRenameDsModal);
+  $("#btnResetSample")?.addEventListener("click", async () => {
+    if (!confirm(`把「${ds.name}」恢复为初始示例数据？当前编辑与派生列将丢弃。`)) return;
+    try {
+      await api(`/api/datasets/${ds.id}/reset-sample`, { method: "POST" });
+      S.ds = await api(`/api/datasets/${ds.id}?page=${S.dataPage}&page_size=${S.pageSize}`);
+      renderDataView();
+      toast("已恢复初始示例数据", "ok");
+    } catch (err) { toast(err.message, "err"); }
+  });
   $("#btnWeight").addEventListener("click", () => weightMenu($("#btnWeight")));
 
   const p = ds.preview;
@@ -453,9 +486,56 @@ function openMergeModal() {
       closeModal();
       await loadDatasets();
       await selectDataset(ds.id, { silent: true });
+      if (ds.evicted) toast(`数据集已达上限（30 个），最早的「${ds.evicted}」已被清理`, "err");
       toast(`已合并：${ds.rows} 行 × ${ds.cols} 列`, "ok");
     } catch (err) { toast(err.message, "err"); }
   });
+}
+
+/* 数据集导出:下载当前数据(工作台编辑、模型写回的派生列一并带出) */
+function exportDsMenu(anchor) {
+  const pop = openPopover(anchor, `<div class="pop-head">导出数据集 · ${esc(S.ds.name)}</div><div class="pop-list">
+    <button class="pop-item" data-fmt="csv">CSV（UTF-8 带 BOM，Excel 可直接打开）</button>
+    <button class="pop-item" data-fmt="xlsx">Excel 工作簿（.xlsx）</button></div>`);
+  $$(".pop-item", pop).forEach(b => b.addEventListener("click", () => {
+    closePopover();
+    const a = document.createElement("a");
+    a.href = `/api/datasets/${S.ds.id}/export?format=${b.dataset.fmt}`;
+    a.download = `${S.ds.name}.${b.dataset.fmt}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast("已开始下载数据集", "ok");
+  }));
+}
+
+/* 数据集重命名 */
+function openRenameDsModal() {
+  openModal(`
+    <div class="modal-head"><h3>重命名数据集</h3><button class="modal-close">×</button></div>
+    <div class="modal-body">
+      <div class="opt-row"><label class="field-label">数据集名称</label>
+        <input id="dsNameInput" class="input" value="${esc(S.ds.name)}" maxlength="80"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="dsNameCancel">取消</button>
+      <button class="btn primary" id="dsNameSave">保存</button>
+    </div>`);
+  $("#dsNameCancel").addEventListener("click", closeModal);
+  $("#dsNameSave").addEventListener("click", async () => {
+    const name = $("#dsNameInput").value.trim();
+    if (!name) { toast("名称不能为空", "err"); return; }
+    try {
+      await api(`/api/datasets/${S.ds.id}/name`, { method: "PUT", body: { name } });
+      closeModal();
+      toast("已重命名", "ok");
+      S.ds.name = name;
+      await loadDatasets();
+      renderDatasetBox();
+      renderDataView();
+    } catch (err) { toast(err.message, "err"); }
+  });
+  $("#dsNameInput").focus();
 }
 
 /* ---------------- 数据处理 ---------------- */
@@ -787,7 +867,9 @@ function viewReport() {
   if (!S.history.length) {
     v.innerHTML = `<div class="card report-empty"><h3>暂无分析记录</h3>
       <p>运行任意模型后，本次会话的分析结果会自动汇总到这里，并可一键导出为可打印的 HTML 报告。</p>
-      <a class="btn primary" href="#/">去运行第一个分析 →</a></div>`;
+      <a class="btn primary" href="#/">去运行第一个分析 →</a>
+      <button class="btn" id="btnPlans" style="margin-left:8px">📋 查看分析方案</button></div>`;
+    $("#btnPlans").addEventListener("click", openPlanDrawer);
     return;
   }
   const html = S.history.map((e, i) => `
@@ -811,6 +893,8 @@ function viewReport() {
         <div class="report-meta">生成时间 ${new Date().toLocaleString("zh-CN")} · 导出后可用浏览器打印为 PDF</div>
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn" id="btnPlanSave" title="把本次会话的分析存为可复用的分析方案">💾 存为方案</button>
+        <button class="btn" id="btnPlans" title="管理已保存的分析方案">📋 方案</button>
         <button class="btn primary" id="btnReportExport">⬇ HTML</button>
         <button class="btn" id="btnReportDocx">⬇ Word</button>
         <button class="btn" id="btnReportPdf">⬇ PDF</button>
@@ -829,6 +913,8 @@ function viewReport() {
     document.getElementById(a.getAttribute("href").slice(1))
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
+  $("#btnPlanSave").addEventListener("click", openPlanSaveModal);
+  $("#btnPlans").addEventListener("click", openPlanDrawer);
   $("#btnReportExport").addEventListener("click", exportReportHtml);
   $("#btnReportDocx").addEventListener("click", () => exportReportFile("docx"));
   $("#btnReportPdf").addEventListener("click", () => exportReportFile("pdf"));
@@ -843,14 +929,19 @@ function viewReport() {
   }));
 }
 
-/* 历史回放:切换到原数据集,恢复参数后自动重新运行 */
+/* 历史回放:切换到原数据集,恢复参数后自动重新运行(方案步骤共用 replayStep) */
 async function replayHistory(i) {
   const e = S.history[i];
   if (!e?.modelId) return;
-  if (!S.datasets.some(d => d.id === e.dsId)) { toast("原数据集已被删除，无法回放", "err"); return; }
-  if (!S.ds || S.ds.id !== e.dsId) await selectDataset(e.dsId, { silent: true });
-  S._replay = { modelId: e.modelId, slots: e.slots || {}, options: e.options || {} };
-  const target = `#/m/${e.modelId}`;
+  await replayStep({ model: e.modelId, dsId: e.dsId, slots: e.slots, options: e.options });
+}
+
+async function replayStep(step) {
+  if (!step?.model) return;
+  if (!S.datasets.some(d => d.id === step.dsId)) { toast("原数据集已被删除，无法回放", "err"); return; }
+  if (!S.ds || S.ds.id !== step.dsId) await selectDataset(step.dsId, { silent: true });
+  S._replay = { modelId: step.model, slots: step.slots || {}, options: step.options || {} };
+  const target = `#/m/${step.model}`;
   if (location.hash === target) route();
   else location.hash = target;
 }
@@ -960,6 +1051,225 @@ ${items}
   a.click();
   URL.revokeObjectURL(a.href);
   toast("报告已导出", "ok");
+}
+
+/* ---------------- 分析方案:保存 / 管理 / 批量重放 ---------------- */
+/* 方案只存「怎么算」(模型 + 数据集引用 + 槽位/选项),结果由运行现场生成,不计入会话报告 */
+function stepsFromHistory() {
+  return [...S.history].reverse()
+    .filter(e => e.modelId)
+    .map(e => ({ model: e.modelId, modelName: e.modelName, dsId: e.dsId, dsName: e.dsName,
+                 slots: e.slots, options: e.options, slotsText: e.slotsText || "" }));
+}
+
+function openPlanSaveModal() {
+  const steps = stepsFromHistory();
+  if (!steps.length) { toast("暂无分析记录，先运行分析再保存方案", "err"); return; }
+  const defName = S.ds ? `${S.ds.name}·方案` : `分析方案 ${new Date().toISOString().slice(0, 10)}`;
+  openModal(`
+    <div class="modal-head"><h3>存为分析方案</h3><button class="modal-close">×</button></div>
+    <div class="modal-body">
+      <div class="opt-row"><label class="field-label">方案名称</label>
+        <input id="planNameInput" class="input" value="${esc(defName)}" maxlength="60"></div>
+      <p class="opt-tip">将保存本次会话的 ${steps.length} 项分析（模型、数据集与参数），可随时一键重放；不保存结果本身。</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="planSaveCancel">取消</button>
+      <button class="btn primary" id="planSaveGo">保存方案</button>
+    </div>`);
+  $("#planSaveCancel").addEventListener("click", closeModal);
+  $("#planSaveGo").addEventListener("click", async () => {
+    try {
+      const plan = await api("/api/plans", { method: "POST", body: { name: $("#planNameInput").value, steps } });
+      closeModal();
+      toast(`已保存方案「${plan.name}」（${plan.steps.length} 步）`, "ok");
+      location.hash = `#/plan/${plan.id}`;
+    } catch (err) { toast(err.message, "err"); }
+  });
+  $("#planNameInput").focus();
+}
+
+async function openPlanDrawer() {
+  let plans = [];
+  try { plans = (await api("/api/plans")).plans; }
+  catch (err) { toast(err.message, "err"); return; }
+  openModal(`
+    <div class="modal-head"><h3>分析方案</h3><button class="modal-close">×</button></div>
+    <div class="modal-body">
+      ${plans.map(p => `
+        <div class="plan-row" data-id="${p.id}">
+          <div class="plan-row-main">
+            <b>${esc(p.name)}</b>
+            <span class="plan-row-meta">${p.steps.length} 步 · 更新于 ${new Date(p.updated * 1000).toLocaleString("zh-CN")}</span>
+          </div>
+          <button class="btn ghost" data-open="${p.id}">打开</button>
+          <button class="btn ghost" data-ren="${p.id}" data-name="${esc(p.name)}" title="重命名">✎</button>
+          <button class="btn ghost" data-delplan="${p.id}" title="删除" style="color:#e11d48">🗑</button>
+        </div>`).join("") || `<p style="color:var(--ink-3);font-size:13px">还没有方案。在综合分析报告页点「💾 存为方案」即可保存。</p>`}
+    </div>
+    <div class="modal-foot"><button class="btn" id="planClose">关闭</button></div>`);
+  $("#planClose").addEventListener("click", closeModal);
+  $$(".plan-row [data-open]").forEach(b => b.addEventListener("click", () => { closeModal(); location.hash = `#/plan/${b.dataset.open}`; }));
+  $$(".plan-row [data-ren]").forEach(b => b.addEventListener("click", () => renamePlanModal(b.dataset.ren, b.dataset.name, openPlanDrawer)));
+  $$(".plan-row [data-delplan]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm("删除该分析方案？该操作不可恢复。")) return;
+    try {
+      await api(`/api/plans/${b.dataset.delplan}`, { method: "DELETE" });
+      toast("方案已删除", "ok");
+      closeModal();
+      openPlanDrawer();
+    } catch (err) { toast(err.message, "err"); }
+  }));
+}
+
+function renamePlanModal(pid, name, after) {
+  openModal(`
+    <div class="modal-head"><h3>重命名方案</h3><button class="modal-close">×</button></div>
+    <div class="modal-body">
+      <div class="opt-row"><label class="field-label">方案名称</label>
+        <input id="planRenInput" class="input" value="${esc(name || "")}" maxlength="60"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="planRenCancel">取消</button>
+      <button class="btn primary" id="planRenSave">保存</button>
+    </div>`);
+  $("#planRenCancel").addEventListener("click", closeModal);
+  $("#planRenSave").addEventListener("click", async () => {
+    try {
+      await api(`/api/plans/${pid}`, { method: "PUT", body: { name: $("#planRenInput").value } });
+      closeModal();
+      toast("已重命名", "ok");
+      if (after) after();
+    } catch (err) { toast(err.message, "err"); }
+  });
+  $("#planRenInput").focus();
+}
+
+/* 方案页:展示步骤清单;运行后逐步渲染结果/失败/跳过状态 */
+async function viewPlan(pid) {
+  S.model = null;
+  chartObservers.forEach(o => o.disconnect()); chartObservers = [];
+  renderTree($("#modelSearch").value);
+  const v = $("#view");
+  let plan;
+  try { plan = await api(`/api/plans/${pid}`); }
+  catch { toast("方案不存在或已被删除", "err"); location.hash = "#/"; return; }
+  setTopbar("分析方案", plan.name, `
+    <span class="chip-note">${plan.steps.length} 个步骤 · 更新于 ${new Date(plan.updated * 1000).toLocaleString("zh-CN")}</span>
+    <button class="btn primary" id="btnPlanRun" ${plan.steps.length ? "" : "disabled"}>▶ 运行全部</button>
+    <button class="btn" id="btnPlanAppend" ${S.history.length ? "" : "disabled"} title="把本次会话的分析追加到方案末尾">＋ 追加会话分析</button>
+    <button class="btn" id="btnPlanRename">✎ 重命名</button>`);
+  $("#btnPlanRun").addEventListener("click", () => runPlan(pid));
+  $("#btnPlanAppend")?.addEventListener("click", () => appendSessionToPlan(pid));
+  $("#btnPlanRename").addEventListener("click", () => renamePlanModal(pid, plan.name, () => viewPlan(pid)));
+
+  const run = S.planRun && S.planRun.planId === pid ? S.planRun : null;
+  const stepsHtml = plan.steps.map((s, i) => planStepHtml(s, i, run?.outcomes?.[i])).join("")
+    || `<div class="card report-empty"><h3>空方案</h3><p>该方案还没有步骤，可运行分析后点「＋ 追加会话分析」。</p></div>`;
+  v.innerHTML = `
+  <div class="page-pad">
+    ${run ? `<div class="card plan-summary ${run.outcomes.some(o => o.status !== "ok") ? "warn" : ""}">${planRunSummary(run)}</div>` : `
+      <div class="card report-empty">
+        <h3>方案共 ${plan.steps.length} 个分析步骤</h3>
+        <p>点「▶ 运行全部」按顺序在各自的数据集上重放所有步骤；数据集已被删除的步骤会标记跳过，可改绑到当前数据集。单步也可「↻ 重新运行」。</p>
+      </div>`}
+    ${stepsHtml}
+  </div>`;
+  if (run) {
+    run.outcomes.forEach((o, i) => o.result?.charts?.forEach((c, j) => {
+      const box = document.getElementById(`chart-po${i}-${j}`);
+      if (box) initChartIn(box, c);
+    }));
+  }
+  $$("[data-step-replay]").forEach(b => b.addEventListener("click", () => replayStep(plan.steps[+b.dataset.stepReplay])));
+  $$("[data-step-del]").forEach(b => b.addEventListener("click", async () => {
+    const i = +b.dataset.stepDel;
+    if (!confirm(`从方案中移除第 ${i + 1} 步「${plan.steps[i].modelName}」？`)) return;
+    try {
+      await api(`/api/plans/${pid}`, { method: "PUT", body: { steps: plan.steps.filter((_, k) => k !== i) } });
+      S.planRun = null;
+      toast("已移除该步骤", "ok");
+      viewPlan(pid);
+    } catch (err) { toast(err.message, "err"); }
+  }));
+  $$("[data-rebind]").forEach(b => b.addEventListener("click", async () => {
+    if (!S.ds) { toast("请先在首页或数据页选择一个数据集", "err"); return; }
+    const i = +b.dataset.rebind;
+    const steps = plan.steps.map((s, k) => k === i ? { ...s, dsId: S.ds.id, dsName: S.ds.name } : s);
+    try {
+      await api(`/api/plans/${pid}`, { method: "PUT", body: { steps } });
+      S.planRun = null;
+      toast(`第 ${i + 1} 步已改绑到「${S.ds.name}」`, "ok");
+      viewPlan(pid);
+    } catch (err) { toast(err.message, "err"); }
+  }));
+}
+
+function planStepHtml(s, i, outcome) {
+  const meta = [s.dsName ? `数据集「${esc(s.dsName)}」` : "", s.slotsText ? esc(s.slotsText) : ""].filter(Boolean).join(" · ");
+  let status = "", body = "";
+  if (outcome?.status === "ok") {
+    status = `<span class="plan-badge ok">✓ 成功</span>`;
+    body = `<div class="report-body">${resultFlowHtml(outcome.result, "all", `po${i}-`)}</div>`;
+  } else if (outcome?.status === "skipped") {
+    status = `<span class="plan-badge skip">⊘ 跳过</span>`;
+    body = `<div class="card rcard plan-err"><div class="err-body">${esc(outcome.error || "")}</div>
+      ${s.dsId ? `<button class="btn" data-rebind="${i}" ${S.ds ? "" : "disabled"} title="把该步骤的数据集替换为当前选中的数据集">改绑到${S.ds ? `「${esc(S.ds.name)}」` : "当前数据集"}</button>` : ""}</div>`;
+  } else if (outcome?.status === "error") {
+    status = `<span class="plan-badge err">✕ 失败</span>`;
+    body = `<div class="card rcard plan-err"><div class="err-body">${esc(outcome.error || "")}</div></div>`;
+  }
+  return `<section class="report-item card" id="ps${i}">
+    <div class="report-item-head">
+      <span class="report-no">${i + 1}</span>
+      <div>
+        <h3>${esc(s.modelName || s.model)}</h3>
+        <div class="report-meta">${meta}</div>
+      </div>
+      <span style="flex:1"></span>
+      ${status}
+      <button class="btn ghost" data-step-replay="${i}" title="切到原数据集，恢复参数并重新计算">↻ 重新运行</button>
+      <button class="btn ghost" data-step-del="${i}" title="从方案中移除该步骤">移除</button>
+    </div>
+    ${body}
+  </section>`;
+}
+
+function planRunSummary(run) {
+  const ok = run.outcomes.filter(o => o.status === "ok").length;
+  const skip = run.outcomes.filter(o => o.status === "skipped").length;
+  const err = run.outcomes.filter(o => o.status === "error").length;
+  return `本次运行：共 ${run.outcomes.length} 步 · <b>${ok}</b> 项成功` +
+    (skip ? ` · ${skip} 项跳过` : "") + (err ? ` · ${err} 项失败` : "") +
+    `（结果仅在此页展示，不计入会话综合报告）`;
+}
+
+async function runPlan(pid) {
+  const btn = $("#btnPlanRun");
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spin"></span> 运行中…`;
+  try {
+    const r = await api(`/api/plans/${pid}/run`, { method: "POST" });
+    S.planRun = { planId: pid, outcomes: r.outcomes };
+    const skip = r.outcomes.filter(o => o.status === "skipped").length;
+    const err = r.outcomes.filter(o => o.status === "error").length;
+    const ok = r.outcomes.length - skip - err;
+    toast(`方案运行完成：${ok} 项成功${skip ? `，${skip} 项跳过` : ""}${err ? `，${err} 项失败` : ""}`, ok === r.outcomes.length ? "ok" : "err");
+  } catch (err) { toast(err.message, "err"); }
+  viewPlan(pid);
+}
+
+async function appendSessionToPlan(pid) {
+  const extra = stepsFromHistory();
+  if (!extra.length) { toast("本次会话还没有分析记录", "err"); return; }
+  try {
+    const plan = await api(`/api/plans/${pid}`);
+    await api(`/api/plans/${pid}`, { method: "PUT", body: { steps: [...plan.steps, ...extra] } });
+    S.planRun = null;
+    toast(`已追加 ${extra.length} 项会话分析到方案`, "ok");
+    viewPlan(pid);
+  } catch (err) { toast(err.message, "err"); }
 }
 
 /* ---------------- 主题 ---------------- */

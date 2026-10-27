@@ -14,12 +14,14 @@ from pydantic import BaseModel, Field
 from . import __version__
 from .codegen import code_for
 from .core.datasets import STORE, Dataset, _safe
+from .core.executor import execute
+from .core.plans import PLAN_STORE
 from .core.registry import REGISTRY
 from .core.results import ModelError, Result
 from .models import CATEGORIES  # noqa: F401  触发注册
 from .processing import OPERATIONS
 from .report_export import ReportPayload, build_docx, build_pdf
-from .samples import SAMPLES, create as create_sample
+from .samples import SAMPLES, create as create_sample, reset as reset_sample
 
 app = FastAPI(title="OpenSPSS", version=__version__)
 
@@ -117,6 +119,20 @@ class MergePayload(BaseModel):
     join: str = "inner"          # join 模式:inner / left
 
 
+class PlanPayload(BaseModel):
+    name: str = ""
+    steps: list = Field(default_factory=list)
+
+
+class PlanUpdatePayload(BaseModel):
+    name: str | None = None
+    steps: list | None = None
+
+
+class DatasetNamePayload(BaseModel):
+    name: str
+
+
 # ---------------------------------------------------------------- 元信息
 @app.get("/api/health")
 def health():
@@ -153,15 +169,23 @@ async def upload(file: UploadFile = File(...)):
         raise ModelError("文件超过 60MB 限制")
     df, meta = STORE.read_upload(file.filename or "data.csv", content)
     ds = STORE.add(file.filename.rsplit(".", 1)[0], df, source="upload", meta=meta)
-    return ds.summary()
+    return _with_evicted(ds)
 
 
 @app.post("/api/datasets/sample/{key}")
 def load_sample(key: str):
     if key not in SAMPLES:
         raise ModelError(f"未知示例数据集: {key}")
-    ds = create_sample(key)
-    return ds.summary()
+    return _with_evicted(create_sample(key))
+
+
+def _with_evicted(ds: Dataset) -> dict:
+    """数据集响应附带容量驱逐提示:达到上限(30)时最旧数据集被清理,前端 toast 告知。"""
+    d = ds.summary()
+    evicted = STORE.take_evicted()
+    if evicted:
+        d["evicted"] = evicted
+    return d
 
 
 @app.get("/api/datasets/{ds_id}")
@@ -176,6 +200,47 @@ def dataset_detail(ds_id: str, page: int = 1, page_size: int = 50):
 def delete_dataset(ds_id: str):
     STORE.delete(ds_id)
     return {"ok": True}
+
+
+@app.put("/api/datasets/{ds_id}/name")
+def rename_dataset(ds_id: str, payload: DatasetNamePayload):
+    ds = STORE.get(ds_id)
+    ds.rename_dataset(payload.name)
+    return {"ok": True, "name": ds.name}
+
+
+@app.get("/api/datasets/{ds_id}/export")
+def export_dataset(ds_id: str, format: str = "csv"):
+    """下载当前数据集(含工作台编辑与模型写回的派生列)。"""
+    from urllib.parse import quote
+
+    ds = STORE.get(ds_id)
+    fmt = format.lower()
+    if fmt == "csv":
+        data = ds.df.to_csv(index=False).encode("utf-8-sig")   # 带 BOM,Excel 直接打开不乱码
+        media = "text/csv"
+    elif fmt == "xlsx":
+        buf = io.BytesIO()
+        ds.df.to_excel(buf, index=False)
+        data = buf.getvalue()
+        media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        raise ModelError("导出格式仅支持 csv / xlsx")
+    fname = quote(f"{ds.name}.{fmt}")
+    return StreamingResponse(
+        io.BytesIO(data), media_type=media,
+        headers={"Content-Disposition": f"attachment; filename=dataset.{fmt}; filename*=UTF-8''{fname}"},
+    )
+
+
+@app.post("/api/datasets/{ds_id}/reset-sample")
+def reset_sample_dataset(ds_id: str):
+    """示例数据集原地重置为初始数据(保留 id:方案与历史回放引用不断链)。"""
+    ds = STORE.get(ds_id)
+    reset_sample(ds)
+    d = ds.summary()
+    d["preview"] = ds.preview(1, 50)
+    return d
 
 
 @app.put("/api/datasets/{ds_id}/columns")
@@ -290,31 +355,17 @@ def merge_dataset(ds_id: str, payload: MergePayload):
     new_ds = STORE.add(name, merged, source="merge")
     new_ds.note(f"由「{ds.name}」与「{other.name}」"
                 f"{'纵向追加' if payload.how == 'append' else '按「' + payload.on + '」' + ('左连' if payload.join == 'left' else '内联')}合并")
-    return new_ds.summary()
+    return _with_evicted(new_ds)
 
 
 # ---------------------------------------------------------------- 运行模型
 @app.post("/api/run")
 def run_model(payload: RunPayload):
     try:
-        spec = REGISTRY.get(payload.model)
+        spec, ds, slots, opts, result = execute(payload.model, payload.dataset,
+                                                payload.slots, payload.options)
     except KeyError:
         raise HTTPException(404, f"模型不存在: {payload.model}")
-    ds = STORE.get(payload.dataset)
-    try:
-        slots, opts = REGISTRY.validate(payload.model, payload.slots, payload.options)
-        # 类型校验
-        dtype_map = {c["name"]: c["dtype"] for c in ds.columns}
-        for s in spec.slots:
-            val = slots.get(s.key)
-            cols = val if isinstance(val, list) else ([val] if val else [])
-            for c in cols:
-                if c not in dtype_map:
-                    raise ModelError(f"变量「{c}」不在当前数据集中")
-                if not s.accepts(dtype_map[c]):
-                    tname = {"quant": "定量", "cat": "定类", "ordinal": "定级"}.get(dtype_map[c], dtype_map[c])
-                    raise ModelError(f"「{s.label}」不接收{tname}变量「{c}」,请在数据页修改变量类型或换选变量")
-        result = spec.runner(ds, slots, opts)
     except ModelError as e:
         raise HTTPException(400, str(e))
     except RecursionError:
@@ -328,6 +379,39 @@ def run_model(payload: RunPayload):
     if code:
         out["code"] = code
     return out
+
+
+# ---------------------------------------------------------------- 分析方案
+@app.get("/api/plans")
+def list_plans():
+    return {"plans": PLAN_STORE.list()}
+
+
+@app.post("/api/plans")
+def create_plan(payload: PlanPayload):
+    return PLAN_STORE.create(payload.name, payload.steps)
+
+
+@app.get("/api/plans/{plan_id}")
+def get_plan(plan_id: str):
+    return PLAN_STORE.get(plan_id)
+
+
+@app.put("/api/plans/{plan_id}")
+def update_plan(plan_id: str, payload: PlanUpdatePayload):
+    return PLAN_STORE.update(plan_id, name=payload.name, steps=payload.steps)
+
+
+@app.delete("/api/plans/{plan_id}")
+def delete_plan(plan_id: str):
+    PLAN_STORE.delete(plan_id)
+    return {"ok": True}
+
+
+@app.post("/api/plans/{plan_id}/run")
+def run_plan(plan_id: str):
+    """批量重放:顺序执行各步,单步失败/跳过不中断。"""
+    return PLAN_STORE.run(plan_id)
 
 
 # ---------------------------------------------------------------- 导出

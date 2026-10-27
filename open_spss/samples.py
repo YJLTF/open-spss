@@ -196,11 +196,33 @@ ORDINAL_HINTS: dict[str, list[str]] = {
 
 
 def create(key: str, store=None):
-    """构建示例数据集并注册到 store,返回 Dataset"""
+    """构建示例数据集并注册到 store,返回 Dataset(记录 sample_key 供前端去重与重置)"""
     from .core.datasets import STORE as default_store
     store = store or default_store
     ds = store.add(SAMPLES[key][0], build(key), source="sample")
+    ds.sample_key = key
     for col in ORDINAL_HINTS.get(key, []):
         if col in ds.df.columns:
             ds.set_dtype(col, "ordinal")
+    ds.save()
+    return ds
+
+
+def reset(ds):
+    """把示例数据集原地重置为初始数据:保留 id/名称(方案与会话引用不断链),
+    重建数据帧与列元数据,清空撤销栈与操作日志。非示例数据集抛 ModelError。"""
+    from .core.datasets import ModelError
+
+    if not ds.sample_key or ds.sample_key not in SAMPLES:
+        raise ModelError("该数据集不是示例数据，无法重置")
+    ds.df = build(ds.sample_key)
+    ds._infer_all()          # noqa: SLF001 同包内复用列类型推断
+    for col in ORDINAL_HINTS.get(ds.sample_key, []):
+        if col in ds.df.columns:
+            ds.set_dtype(col, "ordinal")
+    ds.weight_col = None
+    ds._undo.clear()         # noqa: SLF001
+    ds._redo.clear()         # noqa: SLF001
+    ds.log.clear()
+    ds.note("已恢复初始示例数据")
     return ds

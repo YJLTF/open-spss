@@ -32,6 +32,7 @@ class Dataset:
         self.created = time.time()
         self.log: list[str] = []
         self.weight_col: str | None = None
+        self.sample_key: str | None = None      # 示例数据集的 key(供去重与「恢复初始示例」)
         self._undo: list[tuple] = []
         self._redo: list[tuple] = []
         self._infer_all()
@@ -91,7 +92,7 @@ class Dataset:
             "created": int(self.created), "log": self.log[-12:],
             "columns": self.col_meta(),
             "canUndo": bool(self._undo), "canRedo": bool(self._redo),
-            "weightCol": self.weight_col,
+            "weightCol": self.weight_col, "sampleKey": self.sample_key,
         }
 
     # ---------- 加权个案 ----------
@@ -140,6 +141,16 @@ class Dataset:
                 self.save()
                 return
         raise ModelError(f"未找到列: {col}")
+
+    def rename_dataset(self, name: str) -> None:
+        """数据集级重命名(与列重命名 rename 区分),落盘持久化。"""
+        name = str(name or "").strip()
+        if not name:
+            raise ModelError("数据集名不能为空")
+        if len(name) > 80:
+            raise ModelError("数据集名过长（不超过 80 字符）")
+        self.name = name
+        self.save()
 
     def rename(self, old: str, new: str) -> None:
         if old not in self.df.columns:
@@ -289,6 +300,7 @@ class DatasetStore:
     def __init__(self) -> None:
         self.datasets: dict[str, Dataset] = {}
         self.order: list[str] = []
+        self._evicted: str | None = None
         try:
             n = storage.load_all(self)
             if n:
@@ -341,6 +353,7 @@ class DatasetStore:
         ds = Dataset(name=name, df=df, source=source, meta=meta)
         if len(self.datasets) >= MAX_DATASETS:
             evict = self.order.pop(0)
+            self._evicted = self.datasets[evict].name
             self.datasets.pop(evict, None)
             storage.remove_dataset(evict)
         self.datasets[ds.id] = ds
@@ -359,8 +372,15 @@ class DatasetStore:
         for i in self.order:
             ds = self.datasets[i]
             out.append({"id": ds.id, "name": ds.name, "rows": len(ds.df),
-                        "cols": ds.df.shape[1], "source": ds.source, "created": int(ds.created)})
+                        "cols": ds.df.shape[1], "source": ds.source, "created": int(ds.created),
+                        "sampleKey": ds.sample_key})
         return out
+
+    def take_evicted(self) -> str | None:
+        """返回并清空最近一次 add 因容量上限(MAX_DATASETS)驱逐的数据集名。"""
+        ev = self._evicted
+        self._evicted = None
+        return ev
 
     def delete(self, ds_id: str) -> None:
         self.datasets.pop(ds_id, None)

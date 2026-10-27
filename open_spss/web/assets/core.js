@@ -13,6 +13,7 @@ const S = {
   dataPage: 1,
   pageSize: +(localStorage.getItem("ospss.psize") || 50),
   history: [],              // 本次会话的分析记录(供综合报告)
+  planRun: null,            // 方案运行缓存 {planId, outcomes}(供方案页展示,不计入会话报告)
 };
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
