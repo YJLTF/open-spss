@@ -179,6 +179,8 @@ input, select, textarea { font-family: inherit; color: var(--ink); }
 .btn.primary:hover { background: var(--brand-2); color: #fff; }
 .btn.big { padding: 11px 22px; font-size: 14.5px; border-radius: 11px; }
 .btn.ghost { border-color: transparent; background: none; color: var(--ink-2); }
+.btn.danger { background: var(--rose); border-color: var(--rose); color: #fff; box-shadow: 0 6px 16px rgba(222, 71, 99, .25); }
+.btn.danger:hover { background: #c93350; border-color: #c93350; color: #fff; }
 .btn.ghost:hover { background: var(--brand-soft); color: var(--brand); }
 .btn .spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: rot .7s linear infinite; }
 @keyframes rot { to { transform: rotate(360deg); } }
@@ -608,3 +610,6 @@ html[data-theme="dark"] .grid td input.cell-input { background: var(--card); col
 .plan-summary.warn { border-left: 4px solid var(--amber); }
 .plan-err { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--err-bg); border: 1px solid var(--err-line); }
 .plan-err .err-body { color: var(--err-ink); font-size: 13px; margin: 0; }
+
+/* ---------------- 统一确认弹窗(v1.2.0) ---------------- */
+.confirm-msg { color: var(--ink-2); font-size: 13.5px; line-height: 1.8; margin: 4px 0 2px; }

@@ -73,6 +73,39 @@ function openModal(html, { wide = false } = {}) {
 }
 function closeModal() { $("#modal-root").innerHTML = ""; }
 
+/* 统一确认弹窗:替代原生 confirm,与应用同风格(暗色跟随);点取消/×/遮罩均视为取消 */
+function askConfirm(message, { title = "请确认", okText = "确定", cancelText = "取消", danger = false } = {}) {
+  return new Promise(resolve => {
+    let settled = false;
+    const onKey = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); done(true); }
+      else if (e.key === "Escape") done(false);
+    };
+    const done = (v) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey);
+      closeModal();
+      resolve(v);
+    };
+    openModal(`
+      <div class="modal-head"><h3>${esc(title)}</h3><button class="modal-close">×</button></div>
+      <div class="modal-body"><p class="confirm-msg">${esc(message)}</p></div>
+      <div class="modal-foot">
+        <button class="btn" id="cfCancel">${esc(cancelText)}</button>
+        <button class="btn ${danger ? "danger" : "primary"}" id="cfOk">${esc(okText)}</button>
+      </div>`);
+    $("#cfCancel").addEventListener("click", () => done(false));
+    $("#cfOk").addEventListener("click", () => done(true));
+    // 右上角 × 或遮罩点击由 openModal 直接清空弹窗,此处监听兜底解除
+    const mo = new MutationObserver(() => {
+      if (!$("#modal-root").firstChild) { mo.disconnect(); done(false); }
+    });
+    mo.observe($("#modal-root"), { childList: true });
+    document.addEventListener("keydown", onKey);
+  });
+}
+
 document.addEventListener("mousedown", (e) => {
   const pop = $("#popover-root .popover");
   if (pop && !(e.target.closest && e.target.closest(".slot-box")) && !pop.contains(e.target)) closePopover();

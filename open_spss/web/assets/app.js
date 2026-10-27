@@ -98,7 +98,8 @@ function renderDatasetBox() {
 async function delDataset(id) {
   const d = S.datasets.find(x => x.id === id);
   if (!d) return;
-  if (!confirm(`删除数据集「${d.name}」？将同时删除本地落盘文件，不可恢复。`)) return;
+  if (!(await askConfirm(`删除数据集「${d.name}」？将同时删除本地落盘文件，不可恢复。`,
+    { title: "删除数据集", okText: "删除", danger: true }))) return;
   try {
     await api(`/api/datasets/${id}`, { method: "DELETE" });
   } catch (err) { toast(err.message, "err"); return; }
@@ -247,7 +248,8 @@ function renderDataView() {
   $("#btnExportDs")?.addEventListener("click", (e) => exportDsMenu(e.currentTarget));
   $("#btnDsName")?.addEventListener("click", openRenameDsModal);
   $("#btnResetSample")?.addEventListener("click", async () => {
-    if (!confirm(`把「${ds.name}」恢复为初始示例数据？当前编辑与派生列将丢弃。`)) return;
+    if (!(await askConfirm(`把「${ds.name}」恢复为初始示例数据？当前编辑与派生列将丢弃。`,
+      { title: "恢复初始示例", okText: "恢复", danger: true }))) return;
     try {
       await api(`/api/datasets/${ds.id}/reset-sample`, { method: "POST" });
       S.ds = await api(`/api/datasets/${ds.id}?page=${S.dataPage}&page_size=${S.pageSize}`);
@@ -313,9 +315,10 @@ function renderDataView() {
   $("#pgPrev").addEventListener("click", () => { S.dataPage--; viewData(ds.id); });
   $("#pgNext").addEventListener("click", () => { S.dataPage++; viewData(ds.id); });
   $("#btnAddRow").addEventListener("click", () => editSubmit({ action: "add_row" }));
-  $$(".del-row").forEach(x => x.addEventListener("click", (e) => {
+  $$(".del-row").forEach(x => x.addEventListener("click", async (e) => {
     e.stopPropagation();
-    if (confirm(`删除第 ${+x.dataset.row + 1} 行？`)) editSubmit({ action: "del_row", row: +x.dataset.row });
+    if (await askConfirm(`删除第 ${+x.dataset.row + 1} 行？可通过「⤺ 撤销」恢复。`,
+      { title: "删除行", okText: "删除", danger: true })) editSubmit({ action: "del_row", row: +x.dataset.row });
   }));
   $$("th[data-col]").forEach(th => th.addEventListener("click", () => cycleType(th.dataset.col)));
   $$(".col-chip").forEach(ch => ch.addEventListener("click", () => variableMenu(ch)));
@@ -377,11 +380,12 @@ function variableMenu(chip) {
     ["quant", "cat", "ordinal"].map(t => `<button class="pop-item" data-t="${t}">${vtBadge(t)} ${VT_LABEL[t]}</button>`).join("")
   }<button class="pop-item" data-act="label">✎ 编辑变量/值标签</button>
     <button class="pop-item" data-act="delcol" style="color:#e11d48">🗑 删除列</button></div>`);
-  $$(".pop-item", pop).forEach(b => b.addEventListener("click", () => {
+  $$(".pop-item", pop).forEach(b => b.addEventListener("click", async () => {
     closePopover();
     if (b.dataset.t) setType(col, b.dataset.t);
     else if (b.dataset.act === "label") openLabelModal(col);
-    else if (confirm(`删除列「${col}」？该操作可撤销。`)) editSubmit({ action: "del_col", column: col });
+    else if (await askConfirm(`删除列「${col}」？可通过「⤺ 撤销」恢复。`,
+      { title: "删除列", okText: "删除", danger: true })) editSubmit({ action: "del_col", column: col });
   }));
 }
 
@@ -883,6 +887,7 @@ function viewReport() {
         </div>
         <span style="flex:1"></span>
         ${e.modelId ? `<button class="btn ghost" data-replay="${i}" title="恢复当时的模型、数据集与参数并重新计算">↻ 重新运行</button>` : ""}
+        <button class="btn ghost" data-delhist="${i}" title="从此报告中删除该分析记录">🗑 删除</button>
       </div>
       <div class="report-body">${resultFlowHtml(e.result, "all", `rp${i}-`)}</div>
     </section>`).join("");
@@ -907,6 +912,17 @@ function viewReport() {
     </nav>
     ${html}`;
   $$("[data-replay]").forEach(b => b.addEventListener("click", () => replayHistory(+b.dataset.replay)));
+  $$("[data-delhist]", v).forEach(b => b.addEventListener("click", async () => {
+    const i = +b.dataset.delhist;
+    const e = S.history[i];
+    if (!e) return;
+    if (!(await askConfirm(`删除第 ${i + 1} 项分析「${e.modelName}」？不影响数据集与分析方案，需要时可到模型页重新运行。`,
+      { title: "删除分析记录", okText: "删除", danger: true }))) return;
+    S.history.splice(i, 1);
+    renderSideNav();
+    toast(`已删除「${e.modelName}」的分析记录`);
+    viewReport();
+  }));
   // 目录锚点不能真改 hash:应用是 hash 路由,#rp0 会被当作未知路由回退到首页
   $$(".report-toc a").forEach(a => a.addEventListener("click", ev => {
     ev.preventDefault();
@@ -918,7 +934,9 @@ function viewReport() {
   $("#btnReportExport").addEventListener("click", exportReportHtml);
   $("#btnReportDocx").addEventListener("click", () => exportReportFile("docx"));
   $("#btnReportPdf").addEventListener("click", () => exportReportFile("pdf"));
-  $("#btnReportClear").addEventListener("click", () => {
+  $("#btnReportClear").addEventListener("click", async () => {
+    if (!(await askConfirm(`清空全部 ${S.history.length} 项分析记录？导出过的报告文件不受影响。`,
+      { title: "清空分析记录", okText: "清空", danger: true }))) return;
     S.history = [];
     toast("已清空分析记录");
     viewReport();
@@ -1112,7 +1130,8 @@ async function openPlanDrawer() {
   $$(".plan-row [data-open]").forEach(b => b.addEventListener("click", () => { closeModal(); location.hash = `#/plan/${b.dataset.open}`; }));
   $$(".plan-row [data-ren]").forEach(b => b.addEventListener("click", () => renamePlanModal(b.dataset.ren, b.dataset.name, openPlanDrawer)));
   $$(".plan-row [data-delplan]").forEach(b => b.addEventListener("click", async () => {
-    if (!confirm("删除该分析方案？该操作不可恢复。")) return;
+    if (!(await askConfirm("删除该分析方案？将同时删除本地方案文件，不可恢复。",
+      { title: "删除方案", okText: "删除", danger: true }))) return;
     try {
       await api(`/api/plans/${b.dataset.delplan}`, { method: "DELETE" });
       toast("方案已删除", "ok");
@@ -1184,7 +1203,8 @@ async function viewPlan(pid) {
   $$("[data-step-replay]").forEach(b => b.addEventListener("click", () => replayStep(plan.steps[+b.dataset.stepReplay])));
   $$("[data-step-del]").forEach(b => b.addEventListener("click", async () => {
     const i = +b.dataset.stepDel;
-    if (!confirm(`从方案中移除第 ${i + 1} 步「${plan.steps[i].modelName}」？`)) return;
+    if (!(await askConfirm(`从方案中移除第 ${i + 1} 步「${plan.steps[i].modelName}」？`,
+      { title: "移除步骤", okText: "移除", danger: true }))) return;
     try {
       await api(`/api/plans/${pid}`, { method: "PUT", body: { steps: plan.steps.filter((_, k) => k !== i) } });
       S.planRun = null;
@@ -1290,9 +1310,10 @@ async function boot() {
       const ex = $("#exitApp");
       if (ex) {
         ex.style.display = "";
-        ex.addEventListener("click", (e) => {
+        ex.addEventListener("click", async (e) => {
           e.preventDefault();
-          if (!confirm("停止本地 OpenSPSS 服务并退出？")) return;
+          if (!(await askConfirm("停止本地 OpenSPSS 服务并退出？",
+            { title: "退出应用", okText: "退出", danger: true }))) return;
           api("/api/shutdown", { method: "POST" }).finally(() => {
             document.body.innerHTML = `<div style="display:flex;height:100vh;align-items:center;justify-content:center;color:#64748b;font-size:14px">OpenSPSS 已停止,可关闭此窗口。</div>`;
           });
