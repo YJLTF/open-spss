@@ -116,12 +116,12 @@ def _run_arima(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="arima", name="ARIMA 时间序列预测", category="时间预测",
     runner=_run_arima,
-    desc="差分整合移动平均自回归模型,AIC 网格自动定阶,输出预测值与 95% 置信带。",
+    desc="差分整合移动平均自回归模型，AIC 网格自动定阶，输出预测值与 95% 置信带。",
     tags=["ARIMA", "时间序列", "预测"], demo_note="timeseries",
-    slots=[Slot("var", "序列变量(定量,按行序)", types=(QUANT,)),
-           Slot("time", "时间标签列(选填)", types=("any",), required=False)],
+    slots=[Slot("var", "序列变量（定量，按行序）", types=(QUANT,)),
+           Slot("time", "时间标签列（选填）", types=("any",), required=False)],
     options=[
-        Option("order", "阶数 p,d,q(auto=自动)", "text", default="auto"),
+        Option("order", "阶数 p，d，q（auto=自动）", "text", default="auto"),
         Option("steps", "预测期数", "number", default=6, min=1, max=36),
     ],
 ))
@@ -175,10 +175,10 @@ def _run_gm11(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="gm11", name="灰色预测 GM(1,1)", category="时间预测",
     runner=_run_gm11,
-    desc="小样本单序列预测,后验差检验给出模型等级,适合指数增长型数据。",
+    desc="小样本单序列预测，后验差检验给出模型等级，适合指数增长型数据。",
     tags=["灰色预测", "GM11", "小样本"], demo_note="timeseries",
-    slots=[Slot("var", "序列变量(定量,>0)", types=(QUANT,)),
-           Slot("time", "时间标签列(选填)", types=("any",), required=False)],
+    slots=[Slot("var", "序列变量（定量，>0）", types=(QUANT,)),
+           Slot("time", "时间标签列（选填）", types=("any",), required=False)],
     options=[Option("steps", "预测期数", "number", default=6, min=1, max=36)],
 ))
 
@@ -220,15 +220,15 @@ def _run_exp_smooth(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="exp_smooth", name="指数平滑预测", category="时间预测",
     runner=_run_exp_smooth,
-    desc="一次/Holt/Holt-Winters 三种指数平滑,支持趋势与季节成分。",
+    desc="一次/Holt/Holt-Winters 三种指数平滑，支持趋势与季节成分。",
     tags=["指数平滑", "季节", "预测"], demo_note="timeseries",
-    slots=[Slot("var", "序列变量(定量)", types=(QUANT,)),
-           Slot("time", "时间标签列(选填)", types=("any",), required=False)],
+    slots=[Slot("var", "序列变量（定量）", types=(QUANT,)),
+           Slot("time", "时间标签列（选填）", types=("any",), required=False)],
     options=[
         Option("kind", "平滑方法", "select", default="holt",
-               choices=[{"value": "simple", "label": "一次(无趋势)"}, {"value": "holt", "label": "二次 Holt(线性趋势)"},
-                        {"value": "winters", "label": "三次 Holt-Winters(趋势+季节)"}]),
-        Option("seasonal_periods", "季节周期数(Holt-Winters)", "number", default=12, min=2, max=52),
+               choices=[{"value": "simple", "label": "一次（无趋势）"}, {"value": "holt", "label": "二次 Holt（线性趋势）"},
+                        {"value": "winters", "label": "三次 Holt-Winters（趋势+季节）"}]),
+        Option("seasonal_periods", "季节周期数（Holt-Winters）", "number", default=12, min=2, max=52),
         Option("steps", "预测期数", "number", default=6, min=1, max=36),
     ],
 ))
@@ -259,10 +259,10 @@ def _run_moving_avg(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="moving_avg", name="移动平均预测", category="时间预测",
     runner=_run_moving_avg,
-    desc="简单移动平均平滑序列并预测下一期,快速消除随机波动。",
+    desc="简单移动平均平滑序列并预测下一期，快速消除随机波动。",
     tags=["移动平均", "平滑"], demo_note="timeseries",
-    slots=[Slot("var", "序列变量(定量)", types=(QUANT,)),
-           Slot("time", "时间标签列(选填)", types=("any",), required=False)],
+    slots=[Slot("var", "序列变量（定量）", types=(QUANT,)),
+           Slot("time", "时间标签列（选填）", types=("any",), required=False)],
     options=[
         Option("window", "窗口期 k", "number", default=3, min=2, max=60),
         Option("steps", "预测期数", "number", default=3, min=1, max=12),
@@ -341,12 +341,12 @@ def _run_markov(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="markov", name="马尔科夫预测", category="时间预测",
     runner=_run_markov,
-    desc="由状态转移概率矩阵预测未来各状态分布,适合市场份额、等级流转、客户状态迁移等。",
+    desc="由状态转移概率矩阵预测未来各状态分布，适合市场份额、等级流转、客户状态迁移等。",
     tags=["马尔科夫", "转移矩阵", "状态预测"], demo_note="timeseries",
-    slots=[Slot("var", "状态序列(定量或分类)", types=(QUANT, CAT, ORDINAL))],
+    slots=[Slot("var", "状态序列（定量或分类）", types=(QUANT, CAT, ORDINAL))],
     options=[
         Option("steps", "预测期数", "number", default=3, min=1, max=12),
-        Option("bins", "离散化区间数(0=按类别)", "number", default=0, min=0, max=10),
+        Option("bins", "离散化区间数（0=按类别）", "number", default=0, min=0, max=10),
     ],
 ))
 
@@ -400,9 +400,9 @@ def _run_verhulst(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="verhulst", name="灰色 Verhulst 预测", category="时间预测",
     runner=_run_verhulst,
-    desc="S 型饱和增长序列预测(GM(1,1) 的饱和推广),自动估计增长上限,附后验差检验。",
+    desc="S 型饱和增长序列预测（GM（1,1） 的饱和推广），自动估计增长上限，附后验差检验。",
     tags=["Verhulst", "灰色预测", "饱和", "S曲线"], demo_note="timeseries",
-    slots=[Slot("var", "序列变量(定量,>0)", types=(QUANT,)),
-           Slot("time", "时间标签列(选填)", types=("any",), required=False)],
+    slots=[Slot("var", "序列变量（定量，>0）", types=(QUANT,)),
+           Slot("time", "时间标签列（选填）", types=("any",), required=False)],
     options=[Option("steps", "预测期数", "number", default=6, min=1, max=36)],
 ))

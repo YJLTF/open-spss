@@ -137,13 +137,13 @@ def _stepwise(X: pd.DataFrame, y: pd.Series, alpha: float) -> tuple[pd.DataFrame
 register_model(ModelSpec(
     id="linear", name="多元线性回归", category="回归建模",
     runner=_run_linear,
-    desc="OLS 多元线性回归:系数检验、VIF 共线性诊断、DW 检验、残差图;支持向前/向后/双向逐步筛选。",
+    desc="OLS 多元线性回归：系数检验、VIF 共线性诊断、DW 检验、残差图；支持向前/向后/双向逐步筛选。",
     tags=["线性回归", "逐步回归", "OLS"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("xs", "自变量(可含定类,自动哑变量)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("xs", "自变量（可含定类，自动哑变量）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("method", "变量进入方式", "select", default="enter",
-               choices=[{"value": "enter", "label": "全部进入(Enter)"}, {"value": "stepwise", "label": "双向逐步(Stepwise)"},
+               choices=[{"value": "enter", "label": "全部进入（Enter）"}, {"value": "stepwise", "label": "双向逐步（Stepwise）"},
                         {"value": "both", "label": "向前选择"}]),
         ALPHA_OPT,
     ],
@@ -222,13 +222,13 @@ def _nested_f(reduced, full):
 register_model(ModelSpec(
     id="hierarchical", name="分层(层次)回归", category="回归建模",
     runner=_run_hierarchical,
-    desc="按层依次加入自变量,考察每层新增变量对 R² 的增量贡献(ΔR² 及其 F 检验)。",
+    desc="按层依次加入自变量，考察每层新增变量对 R² 的增量贡献（ΔR² 及其 F 检验）。",
     tags=["分层回归", "ΔR²", "控制变量"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("xs", "自变量(按进入顺序)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("xs", "自变量（按进入顺序）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
-        Option("blocks", "每层变量数(逗号分隔)", "text", default="1,2",
-               tip="例如自变量有 3 个,填 1,2 表示:第1层放入第1个变量,第2层放入后两个"),
+        Option("blocks", "每层变量数（逗号分隔）", "text", default="1,2",
+               tip="例如自变量有 3 个，填 1,2 表示：第1层放入第1个变量，第2层放入后两个"),
         ALPHA_OPT,
     ],
 ))
@@ -285,10 +285,10 @@ def _run_logit_binary(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="logit_binary", name="二元 Logistic 回归", category="回归建模",
     runner=_run_logit_binary,
-    desc="因变量为二分类时的回归建模,输出 OR 优势比、显著性、混淆矩阵与预测准确率。",
+    desc="因变量为二分类时的回归建模，输出 OR 优势比、显著性、混淆矩阵与预测准确率。",
     tags=["Logistic", "OR值", "分类"], demo_note="survey",
-    slots=[Slot("y", "因变量(二分类)", types=(CAT, ORDINAL)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（二分类）", types=(CAT, ORDINAL)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[ALPHA_OPT],
 ))
 
@@ -330,10 +330,10 @@ def _run_logit_multi(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="logit_multi", name="多分类 Logistic 回归", category="回归建模",
     runner=_run_logit_multi,
-    desc="因变量为无序多分类(≥3 类)时的 Logistic 回归,以首类别为参照输出各组 OR。",
+    desc="因变量为无序多分类（≥3 类）时的 Logistic 回归，以首类别为参照输出各组 OR。",
     tags=["Logistic", "多分类"], demo_note="survey",
-    slots=[Slot("y", "因变量(≥3类)", types=(CAT, ORDINAL)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（≥3类）", types=(CAT, ORDINAL)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[ALPHA_OPT],
 ))
 
@@ -379,10 +379,10 @@ def _run_logit_ordinal(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="logit_ordinal", name="有序 Logistic 回归", category="回归建模",
     runner=_run_logit_ordinal,
-    desc="因变量为有序等级(如满意程度:低→高)的比例优势模型,输出累加 OR。",
+    desc="因变量为有序等级（如满意程度：低→高）的比例优势模型，输出累加 OR。",
     tags=["有序Logistic", "比例优势", "等级"], demo_note="survey",
-    slots=[Slot("y", "因变量(有序等级)", types=(ORDINAL, CAT)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（有序等级）", types=(ORDINAL, CAT)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[ALPHA_OPT],
 ))
 
@@ -417,10 +417,10 @@ def _run_poisson(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="poisson", name="泊松回归", category="回归建模",
     runner=_run_poisson,
-    desc="因变量为计数数据(次数/频次)时的广义线性模型,输出 IRR 发生率比。",
+    desc="因变量为计数数据（次数/频次）时的广义线性模型，输出 IRR 发生率比。",
     tags=["泊松", "计数", "GLM"], demo_note="survey",
-    slots=[Slot("y", "因变量(非负计数)", types=(QUANT,)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（非负计数）", types=(QUANT,)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[ALPHA_OPT],
 ))
 
@@ -467,11 +467,11 @@ def _run_ridge(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="ridge", name="岭回归", category="回归建模",
     runner=_run_ridge,
-    desc="L2 正则化线性回归,处理自变量多重共线性,附岭迹图;支持自动交叉验证选 λ。",
+    desc="L2 正则化线性回归，处理自变量多重共线性，附岭迹图；支持自动交叉验证选 λ。",
     tags=["岭回归", "共线性", "正则化"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("xs", "自变量(定量)", types=(QUANT,), multiple=True)],
-    options=[Option("lambda", "λ 惩罚系数(0=交叉验证自动)", "number", default=0, min=0, step=0.1)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("xs", "自变量（定量）", types=(QUANT,), multiple=True)],
+    options=[Option("lambda", "λ 惩罚系数（0=交叉验证自动）", "number", default=0, min=0, step=0.1)],
 ))
 
 
@@ -516,11 +516,11 @@ def _run_lasso(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="lasso", name="Lasso 回归", category="回归建模",
     runner=_run_lasso,
-    desc="L1 正则化回归,自动压缩无关变量系数至 0 完成特征筛选,附正则化路径图。",
+    desc="L1 正则化回归，自动压缩无关变量系数至 0 完成特征筛选，附正则化路径图。",
     tags=["Lasso", "特征筛选", "正则化"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("xs", "自变量(定量)", types=(QUANT,), multiple=True)],
-    options=[Option("lambda", "λ 惩罚系数(0=交叉验证自动)", "number", default=0, min=0, step=0.1)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("xs", "自变量（定量）", types=(QUANT,), multiple=True)],
+    options=[Option("lambda", "λ 惩罚系数（0=交叉验证自动）", "number", default=0, min=0, step=0.1)],
 ))
 
 
@@ -603,10 +603,10 @@ def _run_curve(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="curve", name="曲线估计(曲线回归)", category="回归建模",
     runner=_run_curve,
-    desc="一次拟合线性/二次/三次/对数/指数/幂函数等多种曲线,按 R² 排序寻找最优形态。",
+    desc="一次拟合线性/二次/三次/对数/指数/幂函数等多种曲线，按 R² 排序寻找最优形态。",
     tags=["曲线回归", "非线性"], demo_note="timeseries",
-    slots=[Slot("x", "自变量(定量,>0)", types=(QUANT,)),
-           Slot("y", "因变量(定量)", types=(QUANT,))],
+    slots=[Slot("x", "自变量（定量，>0）", types=(QUANT,)),
+           Slot("y", "因变量（定量）", types=(QUANT,))],
     options=[
         Option("models", "候选模型", "select", default="全部",
                choices=[{"value": "全部", "label": "全部 7 种"}],
@@ -664,10 +664,10 @@ def _run_probit(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="probit", name="Probit 回归", category="回归建模",
     runner=_run_probit,
-    desc="因变量为二分类、误差服从正态分布的回归,输出系数、平均边际效应与预测准确率。",
+    desc="因变量为二分类、误差服从正态分布的回归，输出系数、平均边际效应与预测准确率。",
     tags=["Probit", "二分类", "边际效应"], demo_note="survey",
-    slots=[Slot("y", "因变量(二分类)", types=(CAT, ORDINAL)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（二分类）", types=(CAT, ORDINAL)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[ALPHA_OPT],
 ))
 
@@ -730,13 +730,13 @@ def _run_negbin(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="negbin", name="负二项 / 泊松回归(计数)", category="回归建模",
     runner=_run_negbin,
-    desc="因变量为计数的回归建模,自动检验过离散,支持泊松与负二项(NB2)切换,输出发生率比 IRR。",
+    desc="因变量为计数的回归建模，自动检验过离散，支持泊松与负二项（NB2）切换，输出发生率比 IRR。",
     tags=["泊松", "负二项", "计数数据", "IRR"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(非负整数)", types=(QUANT,)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（非负整数）", types=(QUANT,)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("family", "模型族", "select", default="negbin",
-               choices=[{"value": "negbin", "label": "负二项(NB2)"}, {"value": "poisson", "label": "泊松"}]),
+               choices=[{"value": "negbin", "label": "负二项（NB2）"}, {"value": "poisson", "label": "泊松"}]),
         ALPHA_OPT,
     ],
 ))
@@ -783,14 +783,14 @@ def _run_quantile(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="quantile", name="分位数回归", category="回归建模",
     runner=_run_quantile,
-    desc="研究自变量对因变量不同分位数(如中位数、P90)的影响,对离群值稳健,可揭示异质性效应。",
+    desc="研究自变量对因变量不同分位数（如中位数、P90）的影响，对离群值稳健，可揭示异质性效应。",
     tags=["分位数回归", "中位数回归", "稳健"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("q", "分位点 τ", "select", default=0.5,
                choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.25, "label": "0.25"},
-                        {"value": 0.5, "label": "0.5(中位数)"}, {"value": 0.75, "label": "0.75"},
+                        {"value": 0.5, "label": "0.5（中位数）"}, {"value": 0.75, "label": "0.75"},
                         {"value": 0.9, "label": "0.9"}]),
         ALPHA_OPT,
     ],
@@ -835,10 +835,10 @@ def _run_robust(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="robust", name="稳健回归(RLM)", category="回归建模",
     runner=_run_robust,
-    desc="使用 Huber/Tukey/Hampel 稳健估计削弱离群值影响,输出与 OLS 系数对比。",
+    desc="使用 Huber/Tukey/Hampel 稳健估计削弱离群值影响，输出与 OLS 系数对比。",
     tags=["稳健回归", "离群值", "RLM"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("xs", "自变量(可含定类)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("xs", "自变量（可含定类）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("norm", "权函数", "select", default="huber",
                choices=[{"value": "huber", "label": "Huber"}, {"value": "tukey", "label": "Tukey Biweight"},
@@ -924,10 +924,10 @@ def _run_rsm(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="rsm", name="曲面响应回归(二次RSM)", category="回归建模",
     runner=_run_rsm,
-    desc="拟合含平方项与交互项的二次曲面并求解驻点,常用于实验设计(DOE)参数优化。",
+    desc="拟合含平方项与交互项的二次曲面并求解驻点，常用于实验设计（DOE）参数优化。",
     tags=["响应面", "RSM", "实验设计", "优化"], demo_note="clinical",
-    slots=[Slot("y", "响应变量(定量)", types=(QUANT,)),
-           Slot("xs", "因子变量(定量,2~4个)", types=(QUANT,), multiple=True, max_count=4)],
+    slots=[Slot("y", "响应变量（定量）", types=(QUANT,)),
+           Slot("xs", "因子变量（定量，2~4个）", types=(QUANT,), multiple=True, max_count=4)],
     options=[ALPHA_OPT],
 ))
 # ================================================================ 中介效应分析
@@ -1014,17 +1014,17 @@ def _run_mediation(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="mediation", name="中介效应分析", category="回归建模",
     runner=_run_mediation,
-    desc="系数乘积法 + Bootstrap 检验的中介模型:间接/直接/总效应分解、中介占比与完全/部分中介判定。",
+    desc="系数乘积法 + Bootstrap 检验的中介模型：间接/直接/总效应分解、中介占比与完全/部分中介判定。",
     tags=["中介", "PROCESS", "Bootstrap"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("x", "自变量(定量)", types=(QUANT,)),
-           Slot("ms", "中介变量(定量,可多个)", types=(QUANT,), multiple=True, max_count=5),
-           Slot("covs", "协变量(定量,可选)", types=(QUANT,), multiple=False, required=False)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("x", "自变量（定量）", types=(QUANT,)),
+           Slot("ms", "中介变量（定量，可多个）", types=(QUANT,), multiple=True, max_count=5),
+           Slot("covs", "协变量（定量，可选）", types=(QUANT,), multiple=False, required=False)],
     options=[Option("n_rep", "Bootstrap 次数", "select", default=1000,
-                    choices=[{"value": 200, "label": "200(快)"},
+                    choices=[{"value": 200, "label": "200（快）"},
                              {"value": 500, "label": "500"},
-                             {"value": 1000, "label": "1000(推荐)"},
-                             {"value": 2000, "label": "2000(慢)"}]),
+                             {"value": 1000, "label": "1000（推荐）"},
+                             {"value": 2000, "label": "2000（慢）"}]),
              ALPHA_OPT],
 ))
 
@@ -1174,12 +1174,12 @@ def _run_moderation(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="moderation", name="调节效应分析", category="回归建模",
     runner=_run_moderation,
-    desc="层次回归检验调节效应:中心化交互项、ΔR² 的 F 变化检验、简单斜率与交互图。",
+    desc="层次回归检验调节效应：中心化交互项、ΔR² 的 F 变化检验、简单斜率与交互图。",
     tags=["调节", "交互效应", "简单斜率"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("x", "自变量(定量)", types=(QUANT,)),
-           Slot("mod", "调节变量(定量/定类/定级)", types=(QUANT, CAT, ORDINAL)),
-           Slot("covs", "协变量(定量,可选)", types=(QUANT,), multiple=True, max_count=8)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("x", "自变量（定量）", types=(QUANT,)),
+           Slot("mod", "调节变量（定量/定类/定级）", types=(QUANT, CAT, ORDINAL)),
+           Slot("covs", "协变量（定量，可选）", types=(QUANT,), multiple=True, max_count=8)],
     options=[ALPHA_OPT],
 ))
 
@@ -1265,16 +1265,16 @@ def _run_mixed_lm(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="mixed_lm", name="线性混合模型", category="回归建模",
     runner=_run_mixed_lm,
-    desc="含随机截距/随机斜率的分层模型:固定效应、方差成分与 ICC,适用于重复测量与嵌套数据。",
+    desc="含随机截距/随机斜率的分层模型：固定效应、方差成分与 ICC，适用于重复测量与嵌套数据。",
     tags=["混合模型", "多层模型", "ICC"], demo_note="panel",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(被试/聚类单元)", types=(CAT, ORDINAL, QUANT)),
-           Slot("xs", "固定效应(定量/定类,可多个)", types=(QUANT, CAT, ORDINAL), multiple=True, max_count=10)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（被试/聚类单元）", types=(CAT, ORDINAL, QUANT)),
+           Slot("xs", "固定效应（定量/定类，可多个）", types=(QUANT, CAT, ORDINAL), multiple=True, max_count=10)],
     options=[Option("re_type", "随机效应结构", "select", default="ri",
                     choices=[{"value": "ri", "label": "随机截距"},
                              {"value": "ris", "label": "随机截距+随机斜率"}]),
              Option("reml", "估计方法", "select", default="reml",
-                    choices=[{"value": "reml", "label": "REML(推荐)"},
+                    choices=[{"value": "reml", "label": "REML（推荐）"},
                              {"value": "ml", "label": "极大似然 ML"}]),
              ALPHA_OPT],
 ))

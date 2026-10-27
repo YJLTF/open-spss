@@ -119,12 +119,12 @@ def _run_ahp(ds: Dataset, sl: dict, op: dict) -> Result:  # noqa: ARG001
 register_model(ModelSpec(
     id="ahp", name="层次分析法(AHP)", category="综合评价",
     runner=_run_ahp,
-    desc="输入 n×n 判断矩阵,计算主观权重、最大特征值与一致性比率 CR。",
+    desc="输入 n×n 判断矩阵，计算主观权重、最大特征值与一致性比率 CR。",
     tags=["AHP", "主观赋权", "一致性"], demo_note="region",
     slots=[],
     options=[
-        Option("matrix", "判断矩阵(每行一行,用逗号分隔)", "textarea", default="1,2,3\n0.5,1,2\n0.333,0.5,1"),
-        Option("names", "指标名称(逗号分隔,选填)", "text", default=""),
+        Option("matrix", "判断矩阵（每行一行，用逗号分隔）", "textarea", default="1,2,3\n0.5,1,2\n0.333,0.5,1"),
+        Option("names", "指标名称（逗号分隔，选填）", "text", default=""),
     ],
 ))
 
@@ -160,11 +160,11 @@ def _run_entropy(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="entropy", name="熵值法(熵权法)", category="综合评价",
     runner=_run_entropy,
-    desc="依据指标数据自身的离散程度客观确定权重,常与 TOPSIS 等方法联用。",
+    desc="依据指标数据自身的离散程度客观确定权重，常与 TOPSIS 等方法联用。",
     tags=["熵权", "客观赋权"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
-    options=[Option("neg_cols", "负向指标序号(逗号分隔,选填)", "text", default="",
-                    tip="如第 2 个指标为成本型(越小越好),填 2")],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
+    options=[Option("neg_cols", "负向指标序号（逗号分隔，选填）", "text", default="",
+                    tip="如第 2 个指标为成本型（越小越好），填 2")],
 ))
 
 
@@ -225,15 +225,15 @@ def _run_topsis(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="topsis", name="TOPSIS 优劣解距离法", category="综合评价",
     runner=_run_topsis,
-    desc="计算各评价对象与理想解/负理想解的相对贴近度并排序,支持均分/熵权/AHP 权重。",
+    desc="计算各评价对象与理想解/负理想解的相对贴近度并排序，支持均分/熵权/AHP 权重。",
     tags=["TOPSIS", "综合评价", "排名"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
     options=[
         Option("weight_method", "权重来源", "select", default="entropy",
-               choices=[{"value": "entropy", "label": "熵权法(推荐)"}, {"value": "equal", "label": "均分权重"},
+               choices=[{"value": "entropy", "label": "熵权法（推荐）"}, {"value": "equal", "label": "均分权重"},
                         {"value": "ahp", "label": "AHP 判断矩阵"}]),
-        Option("ahp_matrix", "AHP 判断矩阵(权重选 AHP 时)", "textarea", default=""),
-        Option("neg_cols", "负向指标序号(逗号分隔)", "text", default=""),
+        Option("ahp_matrix", "AHP 判断矩阵（权重选 AHP 时）", "textarea", default=""),
+        Option("neg_cols", "负向指标序号（逗号分隔）", "text", default=""),
     ],
 ))
 
@@ -278,14 +278,14 @@ def _run_grey(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="grey", name="灰色关联分析", category="综合评价",
     runner=_run_grey,
-    desc="以各指标最优值为参考序列计算关联系数与加权关联度,适合小样本评价。",
+    desc="以各指标最优值为参考序列计算关联系数与加权关联度，适合小样本评价。",
     tags=["灰色关联", "GRA", "评价"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
     options=[
         Option("rho", "分辨系数 ρ", "number", default=0.5, min=0.1, max=1.0, step=0.1),
         Option("weight_method", "权重来源", "select", default="entropy",
                choices=[{"value": "entropy", "label": "熵权"}, {"value": "equal", "label": "均分"}]),
-        Option("neg_cols", "负向指标序号(逗号分隔)", "text", default=""),
+        Option("neg_cols", "负向指标序号（逗号分隔）", "text", default=""),
     ],
 ))
 
@@ -349,15 +349,15 @@ def _run_fuzzy(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="fuzzy_eval", name="模糊综合评价", category="综合评价",
     runner=_run_fuzzy,
-    desc="构造隶属度矩阵 R 与权重向量 W,按模糊算子合成评价向量,得到等级隶属度与综合得分。",
+    desc="构造隶属度矩阵 R 与权重向量 W，按模糊算子合成评价向量，得到等级隶属度与综合得分。",
     tags=["模糊评价", "隶属度"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
     options=[
         Option("grades", "评语等级数", "select", default=3,
-               choices=[{"value": 3, "label": "3 级(差/中/好)"}, {"value": 4, "label": "4 级"}, {"value": 5, "label": "5 级"}]),
+               choices=[{"value": 3, "label": "3 级（差/中/好）"}, {"value": 4, "label": "4 级"}, {"value": 5, "label": "5 级"}]),
         Option("weight_method", "权重来源", "select", default="entropy",
                choices=[{"value": "entropy", "label": "熵权"}, {"value": "equal", "label": "均分"}]),
-        Option("neg_cols", "负向指标序号(逗号分隔)", "text", default=""),
+        Option("neg_cols", "负向指标序号（逗号分隔）", "text", default=""),
     ],
 ))
 
@@ -402,12 +402,12 @@ def _run_rsr(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="rsr", name="秩和比(RSR)综合评价", category="综合评价",
     runner=_run_rsr,
-    desc="基于秩次的非参数综合评价,对数据分布无要求,输出 RSR 值、排名与分档。",
+    desc="基于秩次的非参数综合评价，对数据分布无要求，输出 RSR 值、排名与分档。",
     tags=["RSR", "秩和比", "分档"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
     options=[
         Option("use_weights", "使用熵权加权 RSR", "switch", default=False),
-        Option("neg_cols", "负向指标序号(逗号分隔)", "text", default=""),
+        Option("neg_cols", "负向指标序号（逗号分隔）", "text", default=""),
     ],
 ))
 
@@ -466,13 +466,13 @@ def _run_coupling(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="coupling", name="耦合协调度模型", category="综合评价",
     runner=_run_coupling,
-    desc="衡量两个及以上子系统(如经济-环境)相互依赖、协调发展水平的 C-T-D 模型。",
+    desc="衡量两个及以上子系统（如经济-环境）相互依赖、协调发展水平的 C-T-D 模型。",
     tags=["耦合协调", "系统", "可持续发展"], demo_note="region",
-    slots=[Slot("s1", "系统1指标(定量)", types=(QUANT,), multiple=True),
-           Slot("s2", "系统2指标(定量)", types=(QUANT,), multiple=True),
-           Slot("s3", "系统3指标(选填)", types=(QUANT,), multiple=True, required=False),
-           Slot("s4", "系统4指标(选填)", types=(QUANT,), multiple=True, required=False)],
-    options=[Option("neg_cols", "负向指标序号(全局,逗号分隔)", "text", default="")],
+    slots=[Slot("s1", "系统1指标（定量）", types=(QUANT,), multiple=True),
+           Slot("s2", "系统2指标（定量）", types=(QUANT,), multiple=True),
+           Slot("s3", "系统3指标（选填）", types=(QUANT,), multiple=True, required=False),
+           Slot("s4", "系统4指标（选填）", types=(QUANT,), multiple=True, required=False)],
+    options=[Option("neg_cols", "负向指标序号（全局，逗号分隔）", "text", default="")],
 ))
 
 
@@ -505,10 +505,10 @@ def _run_critic(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="critic", name="CRITIC 权重法", category="综合评价",
     runner=_run_critic,
-    desc="以对比强度(标准差)与指标间冲突性(相关性)确定客观权重。",
+    desc="以对比强度（标准差）与指标间冲突性（相关性）确定客观权重。",
     tags=["CRITIC", "客观赋权"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
-    options=[Option("neg_cols", "负向指标序号(逗号分隔)", "text", default="")],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
+    options=[Option("neg_cols", "负向指标序号（逗号分隔）", "text", default="")],
 ))
 
 
@@ -569,10 +569,10 @@ def _run_dea(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="dea", name="数据包络分析(DEA-CCR)", category="综合评价",
     runner=_run_dea,
-    desc="投入导向 CCR 模型,计算各决策单元的相对综合效率 θ,用于多投入多产出的效率评价。",
+    desc="投入导向 CCR 模型，计算各决策单元的相对综合效率 θ，用于多投入多产出的效率评价。",
     tags=["DEA", "效率", "CCR"], demo_note="region",
-    slots=[Slot("inputs", "投入指标(定量,>0)", types=(QUANT,), multiple=True, max_count=8),
-           Slot("outputs", "产出指标(定量,>0)", types=(QUANT,), multiple=True, max_count=8)],
+    slots=[Slot("inputs", "投入指标（定量，>0）", types=(QUANT,), multiple=True, max_count=8),
+           Slot("outputs", "产出指标（定量，>0）", types=(QUANT,), multiple=True, max_count=8)],
     options=[],
 ))
 
@@ -639,16 +639,16 @@ def _run_combo_weight(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="combo_weight", name="组合权重(AHP+熵权)", category="综合评价",
     runner=_run_combo_weight,
-    desc="将 AHP 主观权重与熵权客观权重按乘法/几何/加权平均方式合成,并输出综合得分。",
+    desc="将 AHP 主观权重与熵权客观权重按乘法/几何/加权平均方式合成，并输出综合得分。",
     tags=["组合赋权", "AHP", "熵权"], demo_note="region",
-    slots=[Slot("vars", "评价指标(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "评价指标（定量）", types=(QUANT,), multiple=True)],
     options=[
         Option("ahp_matrix", "AHP 判断矩阵", "textarea", default="1,2,3\n0.5,1,2\n0.333,0.5,1"),
         Option("mode", "组合方式", "select", default="multiplicative",
-               choices=[{"value": "multiplicative", "label": "乘法合成(归一化)"}, {"value": "geometric", "label": "几何平均"},
+               choices=[{"value": "multiplicative", "label": "乘法合成（归一化）"}, {"value": "geometric", "label": "几何平均"},
                         {"value": "average", "label": "加权平均"}]),
         Option("beta", "加权平均时 AHP 占比 β", "number", default=0.5, min=0, max=1, step=0.1),
-        Option("neg_cols", "负向指标序号(逗号分隔)", "text", default=""),
+        Option("neg_cols", "负向指标序号（逗号分隔）", "text", default=""),
     ],
 ))
 
@@ -679,9 +679,9 @@ def _run_cv_weight(ds: Dataset, sl: dict, op: dict) -> Result:  # noqa: ARG001
 register_model(ModelSpec(
     id="cv_weight", name="变异系数权重法", category="综合评价",
     runner=_run_cv_weight,
-    desc="以各指标的变异系数(离散程度)归一化为权重,客观赋权方法。",
+    desc="以各指标的变异系数（离散程度）归一化为权重，客观赋权方法。",
     tags=["变异系数", "客观赋权"], demo_note="region",
-    slots=[Slot("vars", "指标变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "指标变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[],
 ))
 
@@ -727,10 +727,10 @@ def _run_pca_weight(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="pca_weight", name="主成分权重法", category="综合评价",
     runner=_run_pca_weight,
-    desc="用主成分分析的方差信息确定指标客观权重(特征值>1 入选,输出线性组合系数)。",
+    desc="用主成分分析的方差信息确定指标客观权重（特征值>1 入选，输出线性组合系数）。",
     tags=["主成分", "客观赋权", "PCA"], demo_note="region",
-    slots=[Slot("vars", "指标变量(定量,≥2)", types=(QUANT,), multiple=True)],
-    options=[Option("ncomp", "主成分个数(0=特征值>1)", "number", default=0, min=0, max=30)],
+    slots=[Slot("vars", "指标变量（定量，≥2）", types=(QUANT,), multiple=True)],
+    options=[Option("ncomp", "主成分个数（0=特征值>1）", "number", default=0, min=0, max=30)],
 ))
 
 
@@ -777,12 +777,12 @@ def _run_factor_weight(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="factor_weight", name="因子分析权重法", category="综合评价",
     runner=_run_factor_weight,
-    desc="由因子载荷矩阵确定指标权重,支持方差最大旋转,客观赋权方法。",
+    desc="由因子载荷矩阵确定指标权重，支持方差最大旋转，客观赋权方法。",
     tags=["因子分析", "客观赋权", "旋转载荷"], demo_note="region",
-    slots=[Slot("vars", "指标变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "指标变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[
-        Option("ncomp", "因子个数(0=特征值>1)", "number", default=0, min=0, max=30),
-        Option("rotate", "方差最大旋转(varimax)", "switch", default=True),
+        Option("ncomp", "因子个数（0=特征值>1）", "number", default=0, min=0, max=30),
+        Option("rotate", "方差最大旋转（varimax）", "switch", default=True),
     ],
 ))
 
@@ -835,13 +835,13 @@ def _run_dematel(ds: Dataset, sl: dict, op: dict) -> Result:  # noqa: ARG001
 register_model(ModelSpec(
     id="dematel", name="DEMATEL 决策实验室法", category="综合评价",
     runner=_run_dematel,
-    desc="由直接影响矩阵求综合影响矩阵,识别原因/结果因素与系统关键因素。",
+    desc="由直接影响矩阵求综合影响矩阵，识别原因/结果因素与系统关键因素。",
     tags=["DEMATEL", "影响矩阵", "系统分析"], demo_note="region",
     slots=[],
     options=[
-        Option("matrix", "直接影响矩阵(0~4 标度,每行一行)", "textarea",
+        Option("matrix", "直接影响矩阵（0~4 标度，每行一行）", "textarea",
                default="0,2,3,1\n1,0,2,2\n0,1,0,3\n2,1,1,0"),
-        Option("names", "因素名称(逗号分隔,选填)", "text", default=""),
+        Option("names", "因素名称（逗号分隔，选填）", "text", default=""),
     ],
 ))
 
@@ -899,13 +899,13 @@ def _run_ism(ds: Dataset, sl: dict, op: dict) -> Result:  # noqa: ARG001
 register_model(ModelSpec(
     id="ism", name="ISM 解释结构模型", category="综合评价",
     runner=_run_ism,
-    desc="由邻接矩阵求可达矩阵并做层级划分,构建多级递阶结构,理清因素间层次关系。",
+    desc="由邻接矩阵求可达矩阵并做层级划分，构建多级递阶结构，理清因素间层次关系。",
     tags=["ISM", "结构模型", "层级分析"], demo_note="region",
     slots=[],
     options=[
-        Option("matrix", "邻接矩阵(0/1,A[i][j]=1 表示 i 影响 j,每行一行)", "textarea",
+        Option("matrix", "邻接矩阵（0/1，A[i][j]=1 表示 i 影响 j，每行一行）", "textarea",
                default="0,1,0,0,0\n0,0,1,0,1\n0,0,0,1,0\n0,0,0,0,1\n0,0,0,0,0"),
-        Option("names", "因素名称(逗号分隔,选填)", "text", default=""),
+        Option("names", "因素名称（逗号分隔，选填）", "text", default=""),
     ],
 ))
 
@@ -952,12 +952,12 @@ def _run_delphi(ds: Dataset, sl: dict, op: dict) -> Result:  # noqa: ARG001
 register_model(ModelSpec(
     id="delphi", name="德尔菲法(专家权重)", category="综合评价",
     runner=_run_delphi,
-    desc="汇总多轮专家评分为主观权重,并给出 Kendall 协调系数检验专家意见一致性。",
+    desc="汇总多轮专家评分为主观权重，并给出 Kendall 协调系数检验专家意见一致性。",
     tags=["德尔菲", "专家打分", "Kendall W"], demo_note="region",
     slots=[],
     options=[
-        Option("matrix", "专家评分矩阵(行=专家,列=指标,每行一行)", "textarea",
+        Option("matrix", "专家评分矩阵（行=专家，列=指标，每行一行）", "textarea",
                default="8,6,9,7\n7,7,8,6\n9,6,7,8\n8,7,6,9\n6,8,9,7"),
-        Option("names", "指标名称(逗号分隔,选填)", "text", default=""),
+        Option("names", "指标名称（逗号分隔，选填）", "text", default=""),
     ],
 ))

@@ -29,10 +29,10 @@ def _run_hist(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_hist", name="直方图", category="统计绘图",
     runner=_run_hist,
-    desc="频数分布直方图与正态拟合曲线,快速查看数据分布形态。",
+    desc="频数分布直方图与正态拟合曲线，快速查看数据分布形态。",
     tags=["直方图", "分布"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定量,最多4个)", types=(QUANT,), multiple=True, max_count=4)],
-    options=[Option("bins", "分箱数(0=自动)", "number", default=0, min=0, max=60)],
+    slots=[Slot("vars", "分析变量（定量，最多4个）", types=(QUANT,), multiple=True, max_count=4)],
+    options=[Option("bins", "分箱数（0=自动）", "number", default=0, min=0, max=60)],
 ))
 
 
@@ -68,11 +68,11 @@ def _run_box(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_box", name="箱线图", category="统计绘图",
     runner=_run_box,
-    desc="展示中位数、四分位距与离群点,支持多变量对比或按组比较。",
+    desc="展示中位数、四分位距与离群点，支持多变量对比或按组比较。",
     tags=["箱线图", "离群点"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(不分组时,多选)", types=(QUANT,), multiple=True, max_count=8, required=False),
-           Slot("y", "因变量(分组时)", types=(QUANT,), required=False),
-           Slot("group", "分组变量(选填)", types=(CAT, ORDINAL), required=False)],
+    slots=[Slot("vars", "分析变量（不分组时，多选）", types=(QUANT,), multiple=True, max_count=8, required=False),
+           Slot("y", "因变量（分组时）", types=(QUANT,), required=False),
+           Slot("group", "分组变量（选填）", types=(CAT, ORDINAL), required=False)],
     options=[],
 ))
 
@@ -106,11 +106,11 @@ def _run_scatter(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_scatter", name="散点图", category="统计绘图",
     runner=_run_scatter,
-    desc="两变量散点图与线性拟合线,支持按组着色,附相关系数。",
+    desc="两变量散点图与线性拟合线，支持按组着色，附相关系数。",
     tags=["散点图", "拟合"], demo_note="survey",
-    slots=[Slot("x", "X 变量(定量)", types=(QUANT,)),
-           Slot("y", "Y 变量(定量)", types=(QUANT,)),
-           Slot("group", "着色分组(选填)", types=(CAT, ORDINAL), required=False)],
+    slots=[Slot("x", "X 变量（定量）", types=(QUANT,)),
+           Slot("y", "Y 变量（定量）", types=(QUANT,)),
+           Slot("group", "着色分组（选填）", types=(CAT, ORDINAL), required=False)],
     options=[],
 ))
 
@@ -144,10 +144,10 @@ def _run_line(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_line", name="折线图", category="统计绘图",
     runner=_run_line,
-    desc="多序列折线图,可按类别变量聚合取均值,适合趋势与对比展示。",
+    desc="多序列折线图，可按类别变量聚合取均值，适合趋势与对比展示。",
     tags=["折线图", "趋势"], demo_note="timeseries",
-    slots=[Slot("ys", "Y 变量(可多个)", types=(QUANT,), multiple=True, max_count=6),
-           Slot("x", "X 轴类别(选填)", types=(CAT, ORDINAL, QUANT), required=False)],
+    slots=[Slot("ys", "Y 变量（可多个）", types=(QUANT,), multiple=True, max_count=6),
+           Slot("x", "X 轴类别（选填）", types=(CAT, ORDINAL, QUANT), required=False)],
     options=[],
 ))
 
@@ -179,12 +179,12 @@ def _run_bar_pie(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_bar", name="条形图 / 饼图", category="统计绘图",
     runner=_run_bar_pie,
-    desc="按类别统计频数或均值,输出条形图与饼图。",
+    desc="按类别统计频数或均值，输出条形图与饼图。",
     tags=["条形图", "饼图"], demo_note="survey",
-    slots=[Slot("cat", "类别变量(定类)", types=(CAT, ORDINAL)),
-           Slot("value", "数值变量(选填,默认频数)", types=(QUANT,), required=False)],
+    slots=[Slot("cat", "类别变量（定类）", types=(CAT, ORDINAL)),
+           Slot("value", "数值变量（选填，默认频数）", types=(QUANT,), required=False)],
     options=[
-        Option("metric", "聚合方式(有数值变量时)", "select", default="mean",
+        Option("metric", "聚合方式（有数值变量时）", "select", default="mean",
                choices=[{"value": "mean", "label": "均值"}, {"value": "sum", "label": "总和"}, {"value": "count", "label": "计数"}]),
         Option("kind", "图表类型", "select", default="bar",
                choices=[{"value": "bar", "label": "条形图"}, {"value": "pie", "label": "条形图+饼图"}]),
@@ -214,7 +214,7 @@ def _run_pie(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_pie", name="饼图 / 环形图", category="统计绘图",
     runner=_run_pie,
-    desc="展示分类变量的构成比例,支持环形样式。",
+    desc="展示分类变量的构成比例，支持环形样式。",
     tags=["饼图", "占比", "构成"], demo_note="survey",
     slots=[Slot("var", "分类变量", types=(CAT, ORDINAL))],
     options=[Option("donut", "环形样式", "switch", default=True)],
@@ -263,11 +263,11 @@ def _run_radar(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_radar", name="雷达图", category="统计绘图",
     runner=_run_radar,
-    desc="多维度指标对比雷达图,自动归一化到同一量纲(3~8 个维度)。",
+    desc="多维度指标对比雷达图，自动归一化到同一量纲（3~8 个维度）。",
     tags=["雷达图", "多维", "对比"], demo_note="survey",
-    slots=[Slot("vars", "维度变量(定量/定级,3~8个)", types=(QUANT, ORDINAL), multiple=True, max_count=8)],
+    slots=[Slot("vars", "维度变量（定量/定级，3~8个）", types=(QUANT, ORDINAL), multiple=True, max_count=8)],
     options=[Option("normalize", "归一化方式", "select", default="minmax",
-                    choices=[{"value": "minmax", "label": "最小-最大(0~100)"},
+                    choices=[{"value": "minmax", "label": "最小-最大（0~100）"},
                              {"value": "z", "label": "z 分数映射"},
                              {"value": "ratio", "label": "绝对值占比"}])],
 ))
@@ -303,7 +303,7 @@ def _run_pareto(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_pareto", name="帕累托图", category="统计绘图",
     runner=_run_pareto,
-    desc="按频数降序排列并叠加累计百分比曲线,识别“关键的少数”类别(质量管理常用)。",
+    desc="按频数降序排列并叠加累计百分比曲线，识别“关键的少数”类别（质量管理常用）。",
     tags=["帕累托", "二八原则", "主次因素"], demo_note="survey",
     slots=[Slot("var", "分类变量", types=(CAT, ORDINAL))],
     options=[],
@@ -332,7 +332,7 @@ def _run_funnel(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_funnel", name="漏斗图", category="统计绘图",
     runner=_run_funnel,
-    desc="按数量递减展示流程各环节,常用于转化/流失分析。",
+    desc="按数量递减展示流程各环节，常用于转化/流失分析。",
     tags=["漏斗图", "转化率", "流程"], demo_note="ecommerce",
     slots=[Slot("var", "阶段/分类变量", types=(CAT, ORDINAL))],
     options=[],
@@ -367,9 +367,9 @@ def _run_plot_violin(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="plot_violin", name="小提琴图", category="统计绘图",
     runner=_run_plot_violin,
-    desc="核密度分布 + 箱线 + 抖动散点三合一,直观比较各组分布形态、偏态与多峰。",
+    desc="核密度分布 + 箱线 + 抖动散点三合一，直观比较各组分布形态、偏态与多峰。",
     tags=["小提琴图", "分布", "KDE"], demo_note="panel",
-    slots=[Slot("y", "数值变量(定量)", types=(QUANT,)),
-           Slot("x", "分组变量(定类/定级,可选)", types=(CAT, ORDINAL), required=False)],
+    slots=[Slot("y", "数值变量（定量）", types=(QUANT,)),
+           Slot("x", "分组变量（定类/定级，可选）", types=(CAT, ORDINAL), required=False)],
     options=[Option("points", "显示原始散点", "switch", default=True)],
 ))

@@ -69,10 +69,10 @@ def _run_xbar_r(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="xbar_r", name="X̄-R 控制图", category="质量管理",
     runner=_run_xbar_r,
-    desc="计量型 SPC 控制图:子组均值图与极差图,监控过程均值与波动是否受控。",
+    desc="计量型 SPC 控制图：子组均值图与极差图，监控过程均值与波动是否受控。",
     tags=["SPC", "控制图", "休哈特"], demo_note="quality",
-    slots=[Slot("value", "质量特性值(定量)", types=(QUANT,)),
-           Slot("subgroup", "子组编号(定类/编号)", types=(CAT, QUANT))],
+    slots=[Slot("value", "质量特性值（定量）", types=(QUANT,)),
+           Slot("subgroup", "子组编号（定类/编号）", types=(CAT, QUANT))],
     options=[],
 ))
 
@@ -110,10 +110,10 @@ def _run_p_chart(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="p_chart", name="p 控制图(不合格品率)", category="质量管理",
     runner=_run_p_chart,
-    desc="计件型 SPC 控制图:监控各批次不合格品率是否超出 3σ 控制限。",
+    desc="计件型 SPC 控制图：监控各批次不合格品率是否超出 3σ 控制限。",
     tags=["SPC", "p图", "不合格率"], demo_note="quality",
-    slots=[Slot("defects", "不合格品数(定量)", types=(QUANT,)),
-           Slot("size", "样本量(定量)", types=(QUANT,))],
+    slots=[Slot("defects", "不合格品数（定量）", types=(QUANT,)),
+           Slot("size", "样本量（定量）", types=(QUANT,))],
     options=[],
 ))
 
@@ -156,9 +156,9 @@ def _run_process_capability(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="process_capability", name="过程能力分析", category="质量管理",
     runner=_run_process_capability,
-    desc="计算 Cp/Cpk/CPU/CPL 过程能力指数,估计不合格率 PPM,附规格限直方图。",
+    desc="计算 Cp/Cpk/CPU/CPL 过程能力指数，估计不合格率 PPM，附规格限直方图。",
     tags=["Cpk", "过程能力", "SPC"], demo_note="quality",
-    slots=[Slot("var", "质量特性值(定量)", types=(QUANT,))],
+    slots=[Slot("var", "质量特性值（定量）", types=(QUANT,))],
     options=[
         Option("usl", "规格上限 USL", "number", default=0.65, step=0.05),
         Option("lsl", "规格下限 LSL", "number", default=0.35, step=0.05),
@@ -212,9 +212,9 @@ def _run_xmchart(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="xmchart", name="X-MR 控制图(单值-移动极差)", category="质量管理",
     runner=_run_xmchart,
-    desc="单值与移动极差控制图,适合小批量/破坏性检验/连续过程监控。",
+    desc="单值与移动极差控制图，适合小批量/破坏性检验/连续过程监控。",
     tags=["SPC", "控制图", "X-MR"], demo_note="quality",
-    slots=[Slot("var", "质量特性(定量)", types=(QUANT,))],
+    slots=[Slot("var", "质量特性（定量）", types=(QUANT,))],
     options=[],
 ))
 
@@ -258,15 +258,15 @@ def _run_oc_curve(ds: Dataset, sl: dict, op: dict) -> Result:  # noqa: ARG001
 register_model(ModelSpec(
     id="oc_curve", name="验收抽样(OC 曲线)", category="质量管理",
     runner=_run_oc_curve,
-    desc="计数一次抽样方案的抽查特性曲线,核查生产方风险 α 与使用方风险 β。",
+    desc="计数一次抽样方案的抽查特性曲线，核查生产方风险 α 与使用方风险 β。",
     tags=["抽样检验", "OC曲线", "AQL", "LTPD"], demo_note="quality",
     slots=[],
     options=[
         Option("n", "样本量 n", "number", default=50, min=1, max=2000),
         Option("c", "合格判定数 c", "number", default=2, min=0, max=500),
-        Option("p0", "AQL 生产方风险质量(p0)", "number", default=0.01, min=0.0001, max=0.5, step=0.001),
-        Option("p1", "LTPD 使用方风险质量(p1)", "number", default=0.08, min=0.0001, max=0.9, step=0.001),
-        Option("N", "批量 N(选填,用于 AOQ)", "number", default=0, min=0, max=1000000),
+        Option("p0", "AQL 生产方风险质量（p0）", "number", default=0.01, min=0.0001, max=0.5, step=0.001),
+        Option("p1", "LTPD 使用方风险质量（p1）", "number", default=0.08, min=0.0001, max=0.9, step=0.001),
+        Option("N", "批量 N（选填，用于 AOQ）", "number", default=0, min=0, max=1000000),
         Option("p_max", "OC 曲线最大 p", "number", default=0.2, min=0.05, max=0.9, step=0.01),
     ],
 ))

@@ -102,11 +102,11 @@ def _run_pca(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="pca", name="主成分分析(PCA)", category="降维聚类",
     runner=_run_pca,
-    desc="将多个相关变量压缩为少数主成分,输出特征值、方差解释率、载荷矩阵、得分与客观权重。",
+    desc="将多个相关变量压缩为少数主成分，输出特征值、方差解释率、载荷矩阵、得分与客观权重。",
     tags=["PCA", "降维", "权重"], demo_note="region",
-    slots=[Slot("vars", "分析变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "分析变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[
-        Option("ncomp", "主成分个数(0=自动)", "number", default=0, min=0, max=30),
+        Option("ncomp", "主成分个数（0=自动）", "number", default=0, min=0, max=30),
         Option("save_scores", "保存得分到数据集", "switch", default=True),
         Option("weight", "输出主成分权重", "switch", default=False),
     ],
@@ -182,13 +182,13 @@ def _run_factor(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="factor", name="探索性因子分析", category="降维聚类",
     runner=_run_factor,
-    desc="提取潜在公因子并旋转,输出载荷矩阵、共同度与因子得分,常用于量表结构效度分析。",
+    desc="提取潜在公因子并旋转，输出载荷矩阵、共同度与因子得分，常用于量表结构效度分析。",
     tags=["因子分析", "效度", "旋转"], demo_note="survey",
-    slots=[Slot("vars", "题目变量(定量,≥3)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "题目变量（定量，≥3）", types=(QUANT,), multiple=True)],
     options=[
-        Option("nfac", "因子个数(0=自动)", "number", default=0, min=0, max=30),
+        Option("nfac", "因子个数（0=自动）", "number", default=0, min=0, max=30),
         Option("rotation", "旋转方法", "select", default="varimax",
-               choices=[{"value": "varimax", "label": "方差最大化(varimax)"}, {"value": "none", "label": "不旋转"}]),
+               choices=[{"value": "varimax", "label": "方差最大化（varimax）"}, {"value": "none", "label": "不旋转"}]),
         Option("save_scores", "保存因子得分到数据集", "switch", default=True),
     ],
 ))
@@ -252,9 +252,9 @@ def _run_kmeans(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="kmeans", name="K-means 聚类", category="降维聚类",
     runner=_run_kmeans,
-    desc="基于距离的快速聚类:自动输出类别中心、轮廓系数、肘部图与样本散点图。",
+    desc="基于距离的快速聚类：自动输出类别中心、轮廓系数、肘部图与样本散点图。",
     tags=["聚类", "K-means", "细分"], demo_note="ecommerce",
-    slots=[Slot("vars", "聚类变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "聚类变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[
         Option("k", "聚类数 K", "number", default=3, min=2, max=20),
         Option("standardize", "聚类前标准化", "switch", default=True),
@@ -326,9 +326,9 @@ def _run_hier(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="hier_cluster", name="层次聚类", category="降维聚类",
     runner=_run_hier,
-    desc="系统聚类(最短/最长/均值/Ward 联接),输出树状图与指定类数的分类结果。",
+    desc="系统聚类（最短/最长/均值/Ward 联接），输出树状图与指定类数的分类结果。",
     tags=["层次聚类", "树状图", "Ward"], demo_note="region",
-    slots=[Slot("vars", "聚类变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "聚类变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[
         Option("k", "聚类数 K", "number", default=3, min=2, max=20),
         Option("method", "联接方法", "select", default="ward",
@@ -381,9 +381,9 @@ def _run_dbscan(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="dbscan", name="DBSCAN 密度聚类", category="降维聚类",
     runner=_run_dbscan,
-    desc="基于密度的空间聚类,可自动发现任意形状的簇并识别离群点,无需指定簇数。",
+    desc="基于密度的空间聚类，可自动发现任意形状的簇并识别离群点，无需指定簇数。",
     tags=["DBSCAN", "密度聚类", "离群"], demo_note="ecommerce",
-    slots=[Slot("vars", "聚类变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "聚类变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[
         Option("eps", "邻域半径 eps", "number", default=0.5, min=0.01, step=0.1),
         Option("min_samples", "核心点最小邻居数", "number", default=5, min=2),
@@ -444,10 +444,10 @@ def _run_discriminant(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="discriminant", name="判别分析", category="降维聚类",
     runner=_run_discriminant,
-    desc="根据已知组别的训练样本建立 Fisher 线性判别函数,对新样本分类并评估准确率。",
+    desc="根据已知组别的训练样本建立 Fisher 线性判别函数，对新样本分类并评估准确率。",
     tags=["判别分析", "LDA", "分类"], demo_note="ecommerce",
-    slots=[Slot("group", "分组变量(定类,已知类别)", types=(CAT, ORDINAL)),
-           Slot("vars", "判别变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("group", "分组变量（定类，已知类别）", types=(CAT, ORDINAL)),
+           Slot("vars", "判别变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[],
 ))
 
@@ -500,7 +500,7 @@ def _run_canonical(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="canonical", name="典型相关分析", category="降维聚类",
     runner=_run_canonical,
-    desc="分析两组变量整体之间的相关结构,输出典型相关系数及其显著性。",
+    desc="分析两组变量整体之间的相关结构，输出典型相关系数及其显著性。",
     tags=["典型相关", "两组变量"], demo_note="survey",
     slots=[Slot("xset", "第一组变量", types=(QUANT,), multiple=True, max_count=10),
            Slot("yset", "第二组变量", types=(QUANT,), multiple=True, max_count=10)],
@@ -548,9 +548,9 @@ def _run_correspondence(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="correspondence", name="对应分析", category="降维聚类",
     runner=_run_correspondence,
-    desc="将定类交叉表映射到低维空间的双标图,直观展示行/列类别间的关联与定位。",
+    desc="将定类交叉表映射到低维空间的双标图，直观展示行/列类别间的关联与定位。",
     tags=["对应分析", "交叉表", "定位图"], demo_note="survey",
-    slots=[Slot("x", "行变量(定类)", types=(CAT, ORDINAL)),
-           Slot("y", "列变量(定类)", types=(CAT, ORDINAL))],
+    slots=[Slot("x", "行变量（定类）", types=(CAT, ORDINAL)),
+           Slot("y", "列变量（定类）", types=(CAT, ORDINAL))],
     options=[],
 ))

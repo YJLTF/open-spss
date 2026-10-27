@@ -196,10 +196,10 @@ def _fac_gbdt(op, task):
 
 register_model(ModelSpec(
     id="decision_tree", name="决策树", category="机器学习",
-    desc="CART 决策树,自动识别分类/回归任务,输出特征重要性、混淆矩阵与预测结果。",
+    desc="CART 决策树，自动识别分类/回归任务，输出特征重要性、混淆矩阵与预测结果。",
     tags=["决策树", "CART", "可解释"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(目标)", types=(QUANT, CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（目标）", types=(QUANT, CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("max_depth", "最大深度", "number", default=4, min=1, max=30),
         Option("min_samples_leaf", "叶节点最小样本", "number", default=5, min=1, max=100),
@@ -210,13 +210,13 @@ register_model(ModelSpec(
 
 register_model(ModelSpec(
     id="random_forest", name="随机森林", category="机器学习",
-    desc="Bootstrap + 随机特征的集成树模型,抗过拟合,输出特征重要性与性能指标。",
+    desc="Bootstrap + 随机特征的集成树模型，抗过拟合，输出特征重要性与性能指标。",
     tags=["随机森林", "集成学习"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(目标)", types=(QUANT, CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（目标）", types=(QUANT, CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("n_estimators", "树数量", "number", default=200, min=10, max=1000),
-        Option("max_depth", "最大深度(0=不限)", "number", default=0, min=0, max=30),
+        Option("max_depth", "最大深度（0=不限）", "number", default=0, min=0, max=30),
         TEST_RATIO_OPT, SEED_OPT, SAVE_OPT,
     ],
     runner=_ml_runner(_fac_rf, "随机森林"),
@@ -224,10 +224,10 @@ register_model(ModelSpec(
 
 register_model(ModelSpec(
     id="svm", name="支持向量机(SVM)", category="机器学习",
-    desc="基于最大间隔的分类/回归模型,支持线性/多项式/RBF 核。",
+    desc="基于最大间隔的分类/回归模型，支持线性/多项式/RBF 核。",
     tags=["SVM", "支持向量机"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(目标)", types=(QUANT, CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（目标）", types=(QUANT, CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("kernel", "核函数", "select", default="rbf",
                choices=[{"value": "rbf", "label": "RBF 高斯核"}, {"value": "linear", "label": "线性核"},
@@ -242,8 +242,8 @@ register_model(ModelSpec(
     id="knn", name="K近邻(KNN)", category="机器学习",
     desc="按最近 K 个邻居投票/平均的惰性学习算法。",
     tags=["KNN", "近邻"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(目标)", types=(QUANT, CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（目标）", types=(QUANT, CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("k", "邻居数 K", "number", default=5, min=1, max=50),
         Option("weights", "权重方式", "select", default="uniform",
@@ -255,22 +255,22 @@ register_model(ModelSpec(
 
 register_model(ModelSpec(
     id="naive_bayes", name="朴素贝叶斯", category="机器学习",
-    desc="基于贝叶斯定理与特征条件独立假设的分类算法,适合文本/小样本。",
+    desc="基于贝叶斯定理与特征条件独立假设的分类算法，适合文本/小样本。",
     tags=["朴素贝叶斯", "分类"], demo_note="survey",
-    slots=[Slot("y", "因变量(定类,分类任务)", types=(CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（定类，分类任务）", types=(CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[TEST_RATIO_OPT, SEED_OPT, SAVE_OPT],
     runner=_ml_runner(_fac_nb, "朴素贝叶斯"),
 ))
 
 register_model(ModelSpec(
     id="mlp", name="神经网络(MLP)", category="机器学习",
-    desc="多层感知机,支持自定义隐藏层结构,自动早停防止过拟合。",
+    desc="多层感知机，支持自定义隐藏层结构，自动早停防止过拟合。",
     tags=["神经网络", "MLP", "深度学习"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(目标)", types=(QUANT, CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（目标）", types=(QUANT, CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
-        Option("layers", "隐藏层结构(逗号分隔神经元数)", "text", default="64,32"),
+        Option("layers", "隐藏层结构（逗号分隔神经元数）", "text", default="64,32"),
         Option("max_iter", "最大迭代轮数", "number", default=300, min=50, max=2000),
         TEST_RATIO_OPT, SEED_OPT, SAVE_OPT,
     ],
@@ -279,10 +279,10 @@ register_model(ModelSpec(
 
 register_model(ModelSpec(
     id="gbdt", name="梯度提升树(GBDT)", category="机器学习",
-    desc="逐步拟合残差的 Boosting 集成方法,通常精度优于单棵树与随机森林。",
+    desc="逐步拟合残差的 Boosting 集成方法，通常精度优于单棵树与随机森林。",
     tags=["GBDT", "梯度提升", "集成学习"], demo_note="ecommerce",
-    slots=[Slot("y", "因变量(目标)", types=(QUANT, CAT, ORDINAL)),
-           Slot("xs", "自变量(特征)", types=(QUANT, CAT, ORDINAL), multiple=True)],
+    slots=[Slot("y", "因变量（目标）", types=(QUANT, CAT, ORDINAL)),
+           Slot("xs", "自变量（特征）", types=(QUANT, CAT, ORDINAL), multiple=True)],
     options=[
         Option("n_estimators", "迭代轮数", "number", default=200, min=10, max=1000),
         Option("lr", "学习率", "number", default=0.1, min=0.01, max=0.5, step=0.05),
@@ -341,9 +341,9 @@ def _run_isolation_forest(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="isolation_forest", name="异常检测(孤立森林)", category="机器学习",
     runner=_run_isolation_forest,
-    desc="无监督异常检测,基于特征随机切分的路径长度识别离群样本,支持写回标记列。",
+    desc="无监督异常检测，基于特征随机切分的路径长度识别离群样本，支持写回标记列。",
     tags=["孤立森林", "异常检测", "离群点"], demo_note="ecommerce",
-    slots=[Slot("vars", "检测变量(定量,2个以上效果佳)", types=(QUANT,), multiple=True, max_count=15)],
+    slots=[Slot("vars", "检测变量（定量，2个以上效果佳）", types=(QUANT,), multiple=True, max_count=15)],
     options=[
         Option("contamination", "异常比例设定", "number", default=0.05, min=0.005, max=0.3, step=0.005),
         Option("trees", "树数量", "number", default=100, min=10, max=500),

@@ -47,7 +47,7 @@ register_model(ModelSpec(
     runner=_run_ttest_1sample,
     desc="检验样本均值与指定总体均值 μ0 是否存在显著差异。",
     tags=["T检验", "均值"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "分析变量（定量）", types=(QUANT,), multiple=True)],
     options=[Option("popmean", "检验值 μ0", "number", default=0.0, step=0.1), ALPHA_OPT],
 ))
 
@@ -103,10 +103,10 @@ def _run_ttest_indep(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="ttest_indep", name="独立样本 T 检验", category="差异检验",
     runner=_run_ttest_indep,
-    desc="比较两组独立样本的均值差异,自动进行 Levene 方差齐性判断与 Welch 校正。",
+    desc="比较两组独立样本的均值差异，自动进行 Levene 方差齐性判断与 Welch 校正。",
     tags=["T检验", "两组比较"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(二分类)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（二分类）", types=(CAT, ORDINAL))],
     options=[ALPHA_OPT],
 ))
 
@@ -147,10 +147,10 @@ def _run_ttest_paired(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="ttest_paired", name="配对样本 T 检验", category="差异检验",
     runner=_run_ttest_paired,
-    desc="检验同一对象的两次测量(前测-后测)均值差异,支持多对配对。",
+    desc="检验同一对象的两次测量（前测-后测）均值差异，支持多对配对。",
     tags=["T检验", "配对", "前测后测"], demo_note="survey",
-    slots=[Slot("pairs", "配对变量(添加若干对)", types=(QUANT,), multiple=True, max_count=6,
-                tip="列表中的变量按顺序两两配对:第1个与第2个、第3个与第4个…")],
+    slots=[Slot("pairs", "配对变量（添加若干对）", types=(QUANT,), multiple=True, max_count=6,
+                tip="列表中的变量按顺序两两配对：第1个与第2个、第3个与第4个…")],
     options=[ALPHA_OPT],
 ))
 
@@ -243,13 +243,13 @@ def _run_anova_1way(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="anova_1way", name="单因素方差分析", category="差异检验",
     runner=_run_anova_1way,
-    desc="比较三组及以上独立样本均值差异,支持 LSD / Tukey / Scheffe 事后多重比较。",
+    desc="比较三组及以上独立样本均值差异，支持 LSD / Tukey / Scheffe 事后多重比较。",
     tags=["ANOVA", "F检验", "事后检验"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(定类)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（定类）", types=(CAT, ORDINAL))],
     options=[
         Option("posthoc", "事后多重比较", "select", default="tukey",
-               choices=[{"value": "none", "label": "不进行"}, {"value": "lsd", "label": "LSD(最小显著差)"},
+               choices=[{"value": "none", "label": "不进行"}, {"value": "lsd", "label": "LSD（最小显著差）"},
                         {"value": "tukey", "label": "Tukey HSD"}, {"value": "scheffe", "label": "Scheffe"}]),
         ALPHA_OPT,
     ],
@@ -305,11 +305,11 @@ def _run_anova_multi(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="anova_multi", name="多因素方差分析", category="差异检验",
     runner=_run_anova_multi,
-    desc="分析两个及以上分类因子对定量因变量的主效应与交互效应(II 型平方和)。",
+    desc="分析两个及以上分类因子对定量因变量的主效应与交互效应（II 型平方和）。",
     tags=["ANOVA", "交互效应"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("factors", "因子变量(定类,2~4个)", types=(CAT, ORDINAL), multiple=True, max_count=4),
-           Slot("vars", "交互图第二因子(选填)", types=(CAT, ORDINAL), required=False)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("factors", "因子变量（定类，2~4个）", types=(CAT, ORDINAL), multiple=True, max_count=4),
+           Slot("vars", "交互图第二因子（选填）", types=(CAT, ORDINAL), required=False)],
     options=[ALPHA_OPT],
 ))
 
@@ -359,11 +359,11 @@ def _run_ancova(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="ancova", name="协方差分析", category="差异检验",
     runner=_run_ancova,
-    desc="在控制连续协变量(如基线)的影响后,检验分组变量对因变量的效应,输出调整后均值。",
+    desc="在控制连续协变量（如基线）的影响后，检验分组变量对因变量的效应，输出调整后均值。",
     tags=["ANCOVA", "协变量", "调整均值"], demo_note="clinical",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(定类)", types=(CAT, ORDINAL)),
-           Slot("covs", "协变量(定量,1~4个)", types=(QUANT,), multiple=True, max_count=4)],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（定类）", types=(CAT, ORDINAL)),
+           Slot("covs", "协变量（定量，1~4个）", types=(QUANT,), multiple=True, max_count=4)],
     options=[ALPHA_OPT],
 ))
 
@@ -426,13 +426,13 @@ def _run_chisq(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="chisq", name="卡方检验(交叉分析)", category="差异检验",
     runner=_run_chisq,
-    desc="检验两个定类变量是否独立,输出交叉表、卡方统计量、Cramér's V 与 2×2 Fisher 精确检验。",
+    desc="检验两个定类变量是否独立，输出交叉表、卡方统计量、Cramér's V 与 2×2 Fisher 精确检验。",
     tags=["卡方", "交叉表", "独立性"], demo_note="survey",
-    slots=[Slot("x", "自变量(定类)", types=(CAT, ORDINAL)),
-           Slot("y", "因变量(定类)", types=(CAT, ORDINAL)),
-           Slot("freq", "频数列(已汇总数据,选填)", types=(QUANT,), required=False)],
+    slots=[Slot("x", "自变量（定类）", types=(CAT, ORDINAL)),
+           Slot("y", "因变量（定类）", types=(CAT, ORDINAL)),
+           Slot("freq", "频数列（已汇总数据，选填）", types=(QUANT,), required=False)],
     options=[
-        Option("correction", "2×2 连续性校正(Yates)", "switch", default=True),
+        Option("correction", "2×2 连续性校正（Yates）", "switch", default=True),
         Option("fisher", "附 2×2 Fisher 精确检验", "switch", default=True),
         ALPHA_OPT,
     ],
@@ -483,10 +483,10 @@ def _run_mcnemar(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="mcnemar", name="配对卡方检验(McNemar)", category="差异检验",
     runner=_run_mcnemar,
-    desc="检验同一批对象前后两次二分类结果(如转阴/阳性)的变化是否显著。",
+    desc="检验同一批对象前后两次二分类结果（如转阴/阳性）的变化是否显著。",
     tags=["McNemar", "配对", "四格表"], demo_note="clinical",
-    slots=[Slot("x", "前测(二分类)", types=(CAT, ORDINAL)),
-           Slot("y", "后测(二分类)", types=(CAT, ORDINAL))],
+    slots=[Slot("x", "前测（二分类）", types=(CAT, ORDINAL)),
+           Slot("y", "后测（二分类）", types=(CAT, ORDINAL))],
     options=[Option("correction", "连续性校正", "switch", default=True),
              Option("exact", "使用精确二项检验", "switch", default=False),
              ALPHA_OPT],
@@ -520,11 +520,11 @@ def _run_wilcoxon_1(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="wilcoxon_1", name="单样本 Wilcoxon 检验", category="差异检验",
     runner=_run_wilcoxon_1,
-    desc="非参数方法,检验样本中位数与给定值是否有差异,适用于非正态数据。",
+    desc="非参数方法，检验样本中位数与给定值是否有差异，适用于非正态数据。",
     tags=["Wilcoxon", "符号秩", "非参数"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "分析变量（定量）", types=(QUANT,), multiple=True)],
     options=[
-        Option("med", "检验值(中位数)", "number", default=0.0, step=0.1),
+        Option("med", "检验值（中位数）", "number", default=0.0, step=0.1),
         Option("alternative", "备择假设", "select", default="two-sided",
                choices=[{"value": "two-sided", "label": "双侧 ≠"}, {"value": "greater", "label": "单侧 >"}, {"value": "less", "label": "单侧 <"}]),
         Option("correction", "连续性校正", "switch", default=True),
@@ -574,10 +574,10 @@ def _run_mannwhitney(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="mannwhitney", name="Mann-Whitney U 检验", category="差异检验",
     runner=_run_mannwhitney,
-    desc="独立样本 T 检验的非参数替代,基于秩比较两组分布位置差异。",
+    desc="独立样本 T 检验的非参数替代，基于秩比较两组分布位置差异。",
     tags=["Mann-Whitney", "秩和检验", "非参数"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(二分类)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（二分类）", types=(CAT, ORDINAL))],
     options=[Option("alternative", "备择假设", "select", default="two-sided",
                     choices=[{"value": "two-sided", "label": "双侧 ≠"}, {"value": "greater", "label": "单侧 >"}, {"value": "less", "label": "单侧 <"}]),
              ALPHA_OPT],
@@ -626,10 +626,10 @@ def _run_kruskal(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="kruskal", name="Kruskal-Wallis 检验", category="差异检验",
     runner=_run_kruskal,
-    desc="多组独立样本的单因素方差分析非参数替代,附 Bonferroni 校正的两两比较。",
+    desc="多组独立样本的单因素方差分析非参数替代，附 Bonferroni 校正的两两比较。",
     tags=["Kruskal-Wallis", "非参数", "多组"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(定类)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（定类）", types=(CAT, ORDINAL))],
     options=[Option("posthoc", "两两比较", "switch", default=True), ALPHA_OPT],
 ))
 
@@ -674,9 +674,9 @@ def _run_friedman(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="friedman", name="Friedman 检验", category="差异检验",
     runner=_run_friedman,
-    desc="多配对样本(重复测量)的非参数检验,如同一批对象在多个时点/方案的取值比较。",
+    desc="多配对样本（重复测量）的非参数检验，如同一批对象在多个时点/方案的取值比较。",
     tags=["Friedman", "重复测量", "非参数"], demo_note="survey",
-    slots=[Slot("vars", "配对测量(定量,≥3列)", types=(QUANT,), multiple=True, max_count=10)],
+    slots=[Slot("vars", "配对测量（定量，≥3列）", types=(QUANT,), multiple=True, max_count=10)],
     options=[Option("posthoc", "两两比较", "switch", default=True), ALPHA_OPT],
 ))
 
@@ -703,9 +703,9 @@ def _run_sign_test(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="sign_test", name="符号检验", category="差异检验",
     runner=_run_sign_test,
-    desc="仅利用差值正负号的简单配对非参数检验,对分布无任何假设。",
+    desc="仅利用差值正负号的简单配对非参数检验，对分布无任何假设。",
     tags=["符号检验", "非参数"], demo_note="survey",
-    slots=[Slot("x", "变量1(定量)", types=(QUANT,)), Slot("y", "变量2(定量)", types=(QUANT,))],
+    slots=[Slot("x", "变量1（定量）", types=(QUANT,)), Slot("y", "变量2（定量）", types=(QUANT,))],
     options=[Option("alternative", "备择假设", "select", default="two-sided",
                     choices=[{"value": "two-sided", "label": "双侧 ≠"}, {"value": "greater", "label": "单侧 >"}, {"value": "less", "label": "单侧 <"}]),
              ALPHA_OPT],
@@ -797,10 +797,10 @@ def _run_posthoc(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="posthoc", name="事后多重比较", category="差异检验",
     runner=_run_posthoc,
-    desc="方差分析显著后的两两比较:LSD / Bonferroni / Holm / Tukey HSD / Scheffe,输出校正 p 值与置信区间。",
+    desc="方差分析显著后的两两比较：LSD / Bonferroni / Holm / Tukey HSD / Scheffe，输出校正 p 值与置信区间。",
     tags=["事后检验", "多重比较", "两两比较"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(定类,≥3组)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（定类，≥3组）", types=(CAT, ORDINAL))],
     options=[
         Option("method", "比较方法", "select", default="tukey",
                choices=[{"value": "tukey", "label": "Tukey HSD"}, {"value": "lsd", "label": "LSD"},
@@ -862,7 +862,7 @@ register_model(ModelSpec(
     tags=["卡方", "拟合优度", "分布"], demo_note="survey",
     slots=[Slot("var", "分类变量", types=(CAT, ORDINAL))],
     options=[
-        Option("ratios", "期望比例(空=等概率)", "text", default="", tip="与类别数一致,如 0.5,0.3,0.2"),
+        Option("ratios", "期望比例（空=等概率）", "text", default="", tip="与类别数一致，如 0.5,0.3,0.2"),
     ],
 ))
 
@@ -957,10 +957,10 @@ def _run_anova_rm(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="anova_rm", name="重复测量方差分析", category="差异检验",
     runner=_run_anova_rm,
-    desc="同一批被试在多个时间点/条件下的均值比较:单变量 F 检验、Mauchly 球形度检验与 GG 校正。",
+    desc="同一批被试在多个时间点/条件下的均值比较：单变量 F 检验、Mauchly 球形度检验与 GG 校正。",
     tags=["重复测量", "球形度", "组内设计"], demo_note="panel",
-    slots=[Slot("y", "观测指标(定量)", types=(QUANT,)),
-           Slot("subject", "被试编号(同一被试编号相同)", types=(CAT, ORDINAL, QUANT)),
-           Slot("time", "组内因素(时间/条件)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "观测指标（定量）", types=(QUANT,)),
+           Slot("subject", "被试编号（同一被试编号相同）", types=(CAT, ORDINAL, QUANT)),
+           Slot("time", "组内因素（时间/条件）", types=(CAT, ORDINAL))],
     options=[ALPHA_OPT],
 ))

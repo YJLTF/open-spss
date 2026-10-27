@@ -77,9 +77,9 @@ def _run_frequency(ds: Dataset, sl: dict, op: dict) -> Result:
 
 register_model(ModelSpec(
     id="frequency", name="频数分析", category="通用统计",
-    desc="统计定类变量的各水平频数与占比,配合柱状图/饼图展示分布结构。",
+    desc="统计定类变量的各水平频数与占比，配合柱状图/饼图展示分布结构。",
     tags=["频数", "占比", "分类"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定类)", types=(CAT, ORDINAL, QUANT), multiple=True)],
+    slots=[Slot("vars", "分析变量（定类）", types=(CAT, ORDINAL, QUANT), multiple=True)],
     options=[Option("chart_pie", "附加饼图", "switch", default=True)],
     runner=_run_frequency,
 ))
@@ -140,9 +140,9 @@ def _run_descriptive(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="descriptive", name="描述性统计", category="通用统计",
     runner=_run_descriptive,
-    desc="输出均值、标准差、偏度、峰度等集中与离散趋势指标,附直方图与箱线图。",
+    desc="输出均值、标准差、偏度、峰度等集中与离散趋势指标，附直方图与箱线图。",
     tags=["均值", "标准差", "描述"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "分析变量（定量）", types=(QUANT,), multiple=True)],
     options=[],
 ))
 
@@ -185,10 +185,10 @@ def _run_aggregate(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="aggregate", name="分类汇总", category="通用统计",
     runner=_run_aggregate,
-    desc="按定类变量分组,对定量变量计算均值/总和/中位数等汇总指标(类似 GROUP BY)。",
+    desc="按定类变量分组，对定量变量计算均值/总和/中位数等汇总指标（类似 GROUP BY）。",
     tags=["分组", "汇总", "透视"], demo_note="survey",
-    slots=[Slot("group", "分组变量(定类)", types=(CAT, ORDINAL)),
-           Slot("vars", "汇总变量(定量,可多选)", types=(QUANT,), multiple=True)],
+    slots=[Slot("group", "分组变量（定类）", types=(CAT, ORDINAL)),
+           Slot("vars", "汇总变量（定量，可多选）", types=(QUANT,), multiple=True)],
     options=[
         Option("funcs", "汇总指标", "select", default="mean",
                choices=[{"value": v, "label": l} for v, l in
@@ -246,9 +246,9 @@ def _run_normality(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="normality", name="正态性检验", category="通用统计",
     runner=_run_normality,
-    desc="Shapiro-Wilk / K-S(Lilliefors) / Jarque-Bera 三种正态性检验,附直方图与 Q-Q 图。",
+    desc="Shapiro-Wilk / K-S（Lilliefors） / Jarque-Bera 三种正态性检验，附直方图与 Q-Q 图。",
     tags=["正态性", "Shapiro-Wilk", "K-S"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定量)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "分析变量（定量）", types=(QUANT,), multiple=True)],
     options=[Option("alpha", "显著性水平 α", "select", default=0.05,
                     choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.05, "label": "0.05"}, {"value": 0.01, "label": "0.01"}])],
 ))
@@ -289,13 +289,13 @@ def _run_var_homogeneity(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="var_homogeneity", name="方差齐性检验", category="通用统计",
     runner=_run_var_homogeneity,
-    desc="Levene / Bartlett 检验各组方差是否相等,是方差分析/T 检验的前置条件。",
+    desc="Levene / Bartlett 检验各组方差是否相等，是方差分析/T 检验的前置条件。",
     tags=["方差齐性", "Levene"], demo_note="survey",
-    slots=[Slot("y", "因变量(定量)", types=(QUANT,)),
-           Slot("group", "分组变量(定类)", types=(CAT, ORDINAL))],
+    slots=[Slot("y", "因变量（定量）", types=(QUANT,)),
+           Slot("group", "分组变量（定类）", types=(CAT, ORDINAL))],
     options=[
         Option("center", "Levene 中心", "select", default="median",
-               choices=[{"value": "median", "label": "中位数(Brown-Forsythe)"}, {"value": "mean", "label": "均值"}]),
+               choices=[{"value": "median", "label": "中位数（Brown-Forsythe）"}, {"value": "mean", "label": "均值"}]),
         Option("alpha", "显著性水平 α", "select", default=0.05,
                choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.05, "label": "0.05"}, {"value": 0.01, "label": "0.01"}]),
     ],
@@ -333,7 +333,7 @@ register_model(ModelSpec(
     runner=_run_pp_qq,
     desc="以图形方式直观检验数据与正态分布的接近程度。",
     tags=["P-P图", "Q-Q图", "正态"], demo_note="survey",
-    slots=[Slot("var", "分析变量(定量)", types=(QUANT,))],
+    slots=[Slot("var", "分析变量（定量）", types=(QUANT,))],
     options=[Option("kind", "图形类型", "select", default="qq",
                     choices=[{"value": "qq", "label": "Q-Q 图"}, {"value": "pp", "label": "P-P 图"}])],
 ))
@@ -391,14 +391,14 @@ def _run_correlation(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="correlation", name="相关分析", category="通用统计",
     runner=_run_correlation,
-    desc="Pearson / Spearman / Kendall 相关矩阵与显著性检验,附热力图与散点图。",
+    desc="Pearson / Spearman / Kendall 相关矩阵与显著性检验，附热力图与散点图。",
     tags=["相关系数", "热力图"], demo_note="survey",
-    slots=[Slot("vars", "分析变量(定量,≥2)", types=(QUANT,), multiple=True)],
+    slots=[Slot("vars", "分析变量（定量，≥2）", types=(QUANT,), multiple=True)],
     options=[
         Option("method", "相关系数类型", "select", default="pearson",
-               choices=[{"value": "pearson", "label": "Pearson(双变量正态)"},
-                        {"value": "spearman", "label": "Spearman(非正态/等级)"},
-                        {"value": "kendall", "label": "Kendall tau(小样本/有序)"}]),
+               choices=[{"value": "pearson", "label": "Pearson（双变量正态）"},
+                        {"value": "spearman", "label": "Spearman（非正态/等级）"},
+                        {"value": "kendall", "label": "Kendall tau（小样本/有序）"}]),
         Option("alpha", "显著性水平 α", "select", default=0.05,
                choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.05, "label": "0.05"}, {"value": 0.01, "label": "0.01"}]),
     ],
@@ -451,11 +451,11 @@ def _run_partial_corr(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="partial_corr", name="偏相关分析", category="通用统计",
     runner=_run_partial_corr,
-    desc="在控制一个或多个变量的条件下分析两变量的净相关,输出偏相关矩阵与显著性检验。",
+    desc="在控制一个或多个变量的条件下分析两变量的净相关，输出偏相关矩阵与显著性检验。",
     tags=["偏相关", "控制变量", "净相关"], demo_note="survey",
     slots=[
-        Slot("vars", "分析变量(定量,≥2)", types=(QUANT,), multiple=True),
-        Slot("ctrls", "控制变量(定量,≥1)", types=(QUANT,), multiple=True, max_count=10),
+        Slot("vars", "分析变量（定量，≥2）", types=(QUANT,), multiple=True),
+        Slot("ctrls", "控制变量（定量，≥1）", types=(QUANT,), multiple=True, max_count=10),
     ],
     options=[Option("alpha", "显著性水平 α", "select", default=0.05,
                     choices=[{"value": 0.1, "label": "0.1"}, {"value": 0.05, "label": "0.05"},
@@ -525,13 +525,13 @@ def _run_rfm(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="rfm", name="RFM 客户价值模型", category="通用统计",
     runner=_run_rfm,
-    desc="按最近购买(R)、频次(F)、金额(M)将客户切分为 8 层,输出分层画像与金额贡献。",
+    desc="按最近购买（R）、频次（F）、金额（M）将客户切分为 8 层，输出分层画像与金额贡献。",
     tags=["RFM", "客户分层", "会员营销"], demo_note="ecommerce",
     slots=[
-        Slot("cust", "客户标识(每行一笔交易)", types=("any",)),
-        Slot("r", "R-最近购买间隔(定量)", types=(QUANT,)),
-        Slot("f", "F-购买频次(定量)", types=(QUANT,)),
-        Slot("m", "M-消费金额(定量)", types=(QUANT,)),
+        Slot("cust", "客户标识（每行一笔交易）", types=("any",)),
+        Slot("r", "R-最近购买间隔（定量）", types=(QUANT,)),
+        Slot("f", "F-购买频次（定量）", types=(QUANT,)),
+        Slot("m", "M-消费金额（定量）", types=(QUANT,)),
     ],
     options=[Option("split", "得分切分方式", "select", default="median",
                     choices=[{"value": "median", "label": "中位数"}, {"value": "mean", "label": "均值"}])],

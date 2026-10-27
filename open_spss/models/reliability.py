@@ -66,9 +66,9 @@ def _run_reliability(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="reliability", name="信度分析", category="问卷研究",
     runner=_run_reliability,
-    desc="克隆巴赫 α 系数、CITC、删除后 α 与折半信度,评估量表内部一致性。",
+    desc="克隆巴赫 α 系数、CITC、删除后 α 与折半信度，评估量表内部一致性。",
     tags=["信度", "Cronbachα", "CITC"], demo_note="survey",
-    slots=[Slot("vars", "量表题目(定量/定级,≥2)", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
+    slots=[Slot("vars", "量表题目（定量/定级，≥2）", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
     options=[],
 ))
 
@@ -125,9 +125,9 @@ def _run_validity(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="validity", name="效度分析", category="问卷研究",
     runner=_run_validity,
-    desc="KMO、Bartlett 球形检验与探索性因子载荷结构,评估量表结构效度。",
+    desc="KMO、Bartlett 球形检验与探索性因子载荷结构，评估量表结构效度。",
     tags=["效度", "KMO", "结构效度"], demo_note="survey",
-    slots=[Slot("vars", "量表题目(定量/定级,≥3)", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
+    slots=[Slot("vars", "量表题目（定量/定级，≥3）", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
     options=[],
 ))
 
@@ -169,9 +169,9 @@ def _run_item_analysis(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="item_analysis", name="项目分析(区分度)", category="问卷研究",
     runner=_run_item_analysis,
-    desc="临界比值法(CR)与题总相关评估每个题目的区分度,筛选劣质题目。",
+    desc="临界比值法（CR）与题总相关评估每个题目的区分度，筛选劣质题目。",
     tags=["项目分析", "区分度", "临界比值"], demo_note="survey",
-    slots=[Slot("vars", "量表题目(定量/定级)", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
+    slots=[Slot("vars", "量表题目（定量/定级）", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
     options=[ALPHA_OPT],
 ))
 
@@ -205,9 +205,9 @@ def _run_multi_choice(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="multi_choice", name="多选题分析", category="问卷研究",
     runner=_run_multi_choice,
-    desc="对 0/1 编码的多选题输出响应率与普及率,发现最受欢迎的选项。",
+    desc="对 0/1 编码的多选题输出响应率与普及率，发现最受欢迎的选项。",
     tags=["多选题", "响应率", "普及率"], demo_note="survey",
-    slots=[Slot("vars", "选项列(0/1 编码,每列一个选项)", types=(QUANT, CAT), multiple=True, max_count=30)],
+    slots=[Slot("vars", "选项列（0/1 编码，每列一个选项）", types=(QUANT, CAT), multiple=True, max_count=30)],
     options=[],
 ))
 
@@ -252,9 +252,9 @@ def _run_omega(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="omega", name="McDonald's ω 信度", category="问卷研究",
     runner=_run_omega,
-    desc="基于单因子模型的组合信度 McDonald's ω,与 Cronbach's α 对比,不要求 tau 等价。",
+    desc="基于单因子模型的组合信度 McDonald's ω，与 Cronbach's α 对比，不要求 tau 等价。",
     tags=["信度", "ω", "组合信度"], demo_note="survey",
-    slots=[Slot("vars", "量表题目(定量/定级,≥3)", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
+    slots=[Slot("vars", "量表题目（定量/定级，≥3）", types=(QUANT, ORDINAL), multiple=True, max_count=50)],
     options=[],
 ))
 
@@ -337,16 +337,16 @@ def _run_ipa(ds: Dataset, sl: dict, op: dict) -> Result:
 register_model(ModelSpec(
     id="ipa", name="IPA 分析(重要性-满意度)", category="问卷研究",
     runner=_run_ipa,
-    desc="重要性-表现四象限分析,定位需优先改进的服务/产品项目。",
+    desc="重要性-表现四象限分析，定位需优先改进的服务/产品项目。",
     tags=["IPA", "四象限", "满意度"], demo_note="survey",
     slots=[
-        Slot("imp", "重要性变量(定量/定级,与满意度对应)", types=(QUANT, ORDINAL), multiple=True, max_count=12),
-        Slot("perf", "满意度变量(定量/定级,与重要性对应)", types=(QUANT, ORDINAL), multiple=True, max_count=12),
+        Slot("imp", "重要性变量（定量/定级，与满意度对应）", types=(QUANT, ORDINAL), multiple=True, max_count=12),
+        Slot("perf", "满意度变量（定量/定级，与重要性对应）", types=(QUANT, ORDINAL), multiple=True, max_count=12),
     ],
     options=[
         Option("split", "分割点", "select", default="mean",
                choices=[{"value": "mean", "label": "总均值"}, {"value": "median", "label": "中位数"},
-                        {"value": "custom", "label": "自定义(量表中点)"}]),
-        Option("cutvals", "自定义分割点(重要性,满意度)", "text", default="3,3", show_if={"split": "custom"}),
+                        {"value": "custom", "label": "自定义（量表中点）"}]),
+        Option("cutvals", "自定义分割点（重要性，满意度）", "text", default="3,3", show_if={"split": "custom"}),
     ],
 ))
