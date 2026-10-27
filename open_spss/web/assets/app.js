@@ -571,7 +571,7 @@ async function viewModel(id) {
   }
   renderTree($("#modelSearch").value);
   setTopbar(found.category, found.name, `
-    ${S.ds ? `<span class="chip-note">数据集:${esc(S.ds.name)}</span>` : ""}
+    ${S.ds ? `<span class="chip-note">数据集：${esc(S.ds.name)}</span>` : ""}
     <button class="btn" id="btnData">查看数据</button>`);
   $("#btnData").addEventListener("click", () => location.hash = `#/data/${S.ds.id}`);
 
